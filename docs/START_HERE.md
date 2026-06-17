@@ -7,7 +7,7 @@ Start with a private benchmark evaluator, not direct mammogram upload or a login
 The website should let interns upload a small predictions CSV:
 
 ```csv
-image_id,predicted_label
+image_id,prediction
 sample_001,A
 sample_002,C
 ```
@@ -51,7 +51,7 @@ For your current scope, build only these features:
 4. Ask interns to upload predictions with exactly:
 
    ```csv
-   image_id,predicted_label
+   image_id,prediction
    ```
 
 5. Store each run result in history and update the leaderboard.

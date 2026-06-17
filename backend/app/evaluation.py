@@ -12,7 +12,7 @@ from sklearn.metrics import (
 )
 
 
-REQUIRED_PREDICTION_COLUMNS = {"image_id", "predicted_label"}
+REQUIRED_PREDICTION_COLUMNS = {"image_id"}
 REQUIRED_GROUND_TRUTH_COLUMNS = {"image_id", "true_label"}
 
 
@@ -39,6 +39,29 @@ def _validate_columns(frame: pd.DataFrame, required: set[str], name: str) -> Non
         raise ValueError(f"{name} is missing required column(s): {columns}")
 
 
+def _normalize_predictions(frame: pd.DataFrame) -> pd.DataFrame:
+    if "predicted_label" in frame.columns:
+        return frame[["image_id", "predicted_label"]]
+
+    if "prediction" in frame.columns:
+        normalized = frame[["image_id", "prediction"]].rename(columns={"prediction": "predicted_label"})
+        return normalized
+
+    probability_columns = ["p0", "p1", "p2", "p3"]
+    if all(column in frame.columns for column in probability_columns):
+        probability_values = frame[probability_columns].apply(pd.to_numeric, errors="coerce")
+        if probability_values.isna().any().any():
+            raise ValueError("Probability submission contains non-numeric values in p0,p1,p2,p3.")
+
+        label_names = ["A", "B", "C", "D"]
+        predicted_indices = probability_values.to_numpy().argmax(axis=1)
+        normalized = frame[["image_id"]].copy()
+        normalized["predicted_label"] = [label_names[index] for index in predicted_indices]
+        return normalized
+
+    raise ValueError("Predictions CSV must contain predicted_label, prediction, or p0,p1,p2,p3.")
+
+
 def evaluate_predictions(
     *,
     predictions_csv,
@@ -55,7 +78,7 @@ def evaluate_predictions(
     _validate_columns(predictions, REQUIRED_PREDICTION_COLUMNS, "Predictions CSV")
     _validate_columns(ground_truth, REQUIRED_GROUND_TRUTH_COLUMNS, "Ground-truth CSV")
 
-    predictions = predictions[["image_id", "predicted_label"]].dropna()
+    predictions = _normalize_predictions(predictions).dropna()
     ground_truth = ground_truth[["image_id", "true_label"]].dropna()
 
     merged = ground_truth.merge(predictions, on="image_id", how="inner")

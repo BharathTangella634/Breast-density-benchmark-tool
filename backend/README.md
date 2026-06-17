@@ -29,9 +29,17 @@ sample_002,C
 Intern prediction uploads should contain:
 
 ```csv
-image_id,predicted_label
+image_id,prediction
 sample_001,A
 sample_002,B
+```
+
+Probability uploads are also accepted:
+
+```csv
+image_id,p0,p1,p2,p3
+sample_001,0.10,0.70,0.15,0.05
+sample_002,0.02,0.08,0.80,0.10
 ```
 
 ## Create the selected EMBED manifest
