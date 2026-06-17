@@ -25,10 +25,26 @@ Secondary metrics:
 
 ## Current Benchmark Data
 
-The current benchmark preparation uses two local datasets:
+The current benchmark preparation uses two local datasets and creates an 800-image balanced benchmark:
 
-- `EMBED`: 300 selected mammogram images
-- `IBIA / a_data`: 500 selected mammogram images
+- `EMBED`: 432 selected mammogram images
+- `IBIA / a_data`: 368 selected mammogram images
+
+Combined class balance:
+
+- `A`: 200 images
+- `B`: 200 images
+- `C`: 200 images
+- `D`: 200 images
+
+Dataset contribution by class:
+
+```text
+EMBED: A=100, B=100, C=100, D=132
+IBIA:  A=100, B=100, C=100, D=68
+```
+
+IBIA has only 68 available `D` images, so the remaining `D` examples are filled from EMBED.
 
 Both datasets use density labels:
 
@@ -43,17 +59,17 @@ Generated benchmark files are in:
 data/benchmark_prep/
 ```
 
-Public files to give interns:
+Public file to give interns:
 
-- `data/benchmark_prep/embed_test_public.csv`
-- `data/benchmark_prep/ibia_test_public.csv`
+- `data/benchmark_prep/benchmark_test_public.csv`
 
-Private answer-key files to keep hidden:
+This is the only CSV interns need for the evaluation round.
 
-- `data/benchmark_prep/embed_labels_private.csv`
-- `data/benchmark_prep/ibia_labels_private.csv`
+Private answer-key file to keep hidden:
 
-Do not give the private label CSVs to interns.
+- `data/benchmark_prep/benchmark_labels_private.csv`
+
+Do not give the private label CSV to interns.
 
 ## Intern Submission Format
 
@@ -120,10 +136,27 @@ python scripts/prepare_benchmark_csvs.py
 
 This regenerates:
 
-- `embed_labels_private.csv`
-- `embed_test_public.csv`
-- `ibia_labels_private.csv`
-- `ibia_test_public.csv`
+- `benchmark_labels_private.csv`
+- `benchmark_test_public.csv`
+
+## Run Real Evaluation
+
+Start the backend with the combined hidden labels:
+
+```bash
+cd backend
+source .venv/bin/activate
+BENCHMARK_GROUND_TRUTH_CSV=/home/tanuh/EMBED/Breast-density-benchmark-tool/data/benchmark_prep/benchmark_labels_private.csv uvicorn app.main:app --reload
+```
+
+Then start the frontend:
+
+```bash
+cd frontend
+npm run dev
+```
+
+When an intern sends a prediction CSV, enter the model name in the website, upload the CSV, and click evaluate. The run will be saved in history and reflected in the leaderboard.
 
 ## Local Development
 

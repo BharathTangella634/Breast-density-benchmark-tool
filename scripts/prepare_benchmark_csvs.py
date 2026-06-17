@@ -57,6 +57,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--embed-count", type=int, default=300)
     parser.add_argument("--ibia-count", type=int, default=500)
+    parser.add_argument("--balanced-per-class", type=int, default=200)
+    parser.add_argument("--target-ibia-per-class", type=int, default=100)
     parser.add_argument("--seed", type=int, default=42)
     return parser.parse_args()
 
@@ -200,6 +202,40 @@ def sample_rows(rows: list[dict], count: int, seed: int) -> list[dict]:
     return sampled[:count]
 
 
+def balanced_sample_rows(
+    *,
+    embed_rows: list[dict],
+    ibia_rows_: list[dict],
+    per_class: int,
+    target_ibia_per_class: int,
+    seed: int,
+) -> tuple[list[dict], list[dict]]:
+    rng = random.Random(seed)
+    selected_embed: list[dict] = []
+    selected_ibia: list[dict] = []
+
+    for label in ["A", "B", "C", "D"]:
+        embed_pool = [row for row in embed_rows if row["true_label"] == label]
+        ibia_pool = [row for row in ibia_rows_ if row["true_label"] == label]
+        rng.shuffle(embed_pool)
+        rng.shuffle(ibia_pool)
+
+        ibia_take = min(target_ibia_per_class, len(ibia_pool), per_class)
+        embed_take = per_class - ibia_take
+        if embed_take > len(embed_pool):
+            raise ValueError(
+                f"Not enough EMBED rows to fill class {label}: "
+                f"need {embed_take}, found {len(embed_pool)}."
+            )
+
+        selected_ibia.extend(ibia_pool[:ibia_take])
+        selected_embed.extend(embed_pool[:embed_take])
+
+    rng.shuffle(selected_embed)
+    rng.shuffle(selected_ibia)
+    return selected_embed, selected_ibia
+
+
 def assign_image_ids(rows: list[dict], prefix: str) -> list[dict]:
     output = []
     for index, row in enumerate(rows, start=1):
@@ -231,24 +267,44 @@ def write_csv(path: Path, rows: list[dict], include_labels: bool) -> None:
             writer.writerow(payload)
 
 
+def write_combined_labels(path: Path, rows: list[dict]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=["image_id", "true_label"])
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({"image_id": row["image_id"], "true_label": row["true_label"]})
+
+
 def main() -> None:
     args = parse_args()
 
     embed_labels = read_embed_labels(args.embed_clinical)
     embed_candidates = filtered_embed_rows(args.embed_metadata, embed_labels, args.embed_root)
-    embed_sample = assign_image_ids(sample_rows(embed_candidates, args.embed_count, args.seed), "embed")
 
     ibia_labels = read_ibia_labels(args.ibia_metadata)
     ibia_candidates = ibia_rows(args.ibia_root, ibia_labels)
-    ibia_sample = assign_image_ids(sample_rows(ibia_candidates, args.ibia_count, args.seed), "ibia")
 
-    write_csv(args.output_dir / "embed_labels_private.csv", embed_sample, include_labels=True)
-    write_csv(args.output_dir / "embed_test_public.csv", embed_sample, include_labels=False)
-    write_csv(args.output_dir / "ibia_labels_private.csv", ibia_sample, include_labels=True)
-    write_csv(args.output_dir / "ibia_test_public.csv", ibia_sample, include_labels=False)
+    if args.balanced_per_class > 0:
+        embed_selected, ibia_selected = balanced_sample_rows(
+            embed_rows=embed_candidates,
+            ibia_rows_=ibia_candidates,
+            per_class=args.balanced_per_class,
+            target_ibia_per_class=args.target_ibia_per_class,
+            seed=args.seed,
+        )
+    else:
+        embed_selected = sample_rows(embed_candidates, args.embed_count, args.seed)
+        ibia_selected = sample_rows(ibia_candidates, args.ibia_count, args.seed)
 
-    print(f"Wrote {len(embed_sample)} EMBED rows to {args.output_dir / 'embed_labels_private.csv'}")
-    print(f"Wrote {len(ibia_sample)} IBIA rows to {args.output_dir / 'ibia_labels_private.csv'}")
+    embed_sample = assign_image_ids(embed_selected, "embed")
+    ibia_sample = assign_image_ids(ibia_selected, "ibia")
+
+    write_csv(args.output_dir / "benchmark_test_public.csv", embed_sample + ibia_sample, include_labels=False)
+    write_combined_labels(args.output_dir / "benchmark_labels_private.csv", embed_sample + ibia_sample)
+
+    print(f"Selected {len(embed_sample)} EMBED rows and {len(ibia_sample)} IBIA rows.")
+    print(f"Wrote {len(embed_sample) + len(ibia_sample)} combined rows to {args.output_dir / 'benchmark_labels_private.csv'}")
 
 
 if __name__ == "__main__":

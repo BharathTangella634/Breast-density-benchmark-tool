@@ -40,7 +40,7 @@ type LeaderboardItem = {
 };
 
 const API_BASE = "http://127.0.0.1:8000";
-const DEMO_MODE = true;
+const DEMO_MODE = false;
 
 const DEMO_RESULT: EvaluationResponse = {
   run: {
@@ -142,7 +142,7 @@ function formatDate(value: string) {
 }
 
 function App() {
-  const [modelName, setModelName] = useState(DEMO_RESULT.model_name);
+  const [modelName, setModelName] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [result, setResult] = useState<EvaluationResponse | null>(DEMO_MODE ? DEMO_RESULT : null);
   const [history, setHistory] = useState<HistoryItem[]>(DEMO_MODE ? DEMO_HISTORY : []);
