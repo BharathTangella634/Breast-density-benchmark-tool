@@ -12,8 +12,7 @@ Read [docs/START_HERE.md](docs/START_HERE.md) for the architecture and first mil
 - `docs/`: project planning notes and implementation milestones.
 
 ## Core idea
-
-Do not upload the full EMBED mammogram dataset to a public website. Keep the images and ground-truth labels local/private. Interns should submit a lightweight prediction CSV, and the backend should compute:
+On the webiste, lightweight prediction CSV will be submitted and the backend should compute:
 
 - Primary: macro F1
 - Secondary: accuracy, balanced accuracy, weighted F1
