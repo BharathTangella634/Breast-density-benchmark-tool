@@ -72,7 +72,6 @@ function App() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const evaluatedModelCount = leaderboard.length;
-  const evaluatedRunCount = history.length;
   const bestMacroF1 = leaderboard.length > 0 ? Math.max(...leaderboard.map((item) => item.best_macro_f1)) : null;
   const quadraticKappaScores = leaderboard
     .map((item) => item.best_quadratic_kappa)
@@ -202,7 +201,6 @@ function App() {
           <div>
             <span>Models evaluated</span>
             <strong>{evaluatedModelCount}</strong>
-            <p>{evaluatedRunCount} saved upload{evaluatedRunCount === 1 ? "" : "s"}</p>
           </div>
         </article>
         <article>
