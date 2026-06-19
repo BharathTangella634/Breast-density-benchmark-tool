@@ -34,6 +34,22 @@ def initialize_history_db(db_path: Path) -> None:
             )
             """
         )
+        connection.execute(
+            """
+            DELETE FROM evaluation_runs
+            WHERE id NOT IN (
+                SELECT MAX(id)
+                FROM evaluation_runs
+                GROUP BY source_filename
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_evaluation_runs_source_filename
+            ON evaluation_runs (source_filename)
+            """
+        )
 
 
 def record_evaluation(
@@ -47,7 +63,43 @@ def record_evaluation(
     created_at = datetime.now(timezone.utc).isoformat()
 
     with _connect(db_path) as connection:
-        cursor = connection.execute(
+        existing = connection.execute(
+            "SELECT id FROM evaluation_runs WHERE source_filename = ?",
+            (source_filename,),
+        ).fetchone()
+
+        if existing:
+            connection.execute(
+                """
+                UPDATE evaluation_runs
+                SET
+                    model_name = ?,
+                    submission_type = ?,
+                    sample_count = ?,
+                    macro_f1 = ?,
+                    accuracy = ?,
+                    balanced_accuracy = ?,
+                    weighted_f1 = ?,
+                    quadratic_kappa = ?,
+                    created_at = ?
+                WHERE source_filename = ?
+                """,
+                (
+                    payload["model_name"],
+                    submission_type,
+                    payload["sample_count"],
+                    payload["macro_f1"],
+                    payload["accuracy"],
+                    payload["balanced_accuracy"],
+                    payload["weighted_f1"],
+                    payload["quadratic_kappa"],
+                    created_at,
+                    source_filename,
+                ),
+            )
+            run_id = existing["id"]
+        else:
+            cursor = connection.execute(
             """
             INSERT INTO evaluation_runs (
                 model_name,
@@ -74,8 +126,8 @@ def record_evaluation(
                 payload["quadratic_kappa"],
                 created_at,
             ),
-        )
-        run_id = cursor.lastrowid
+            )
+            run_id = cursor.lastrowid
 
     return {
         "id": run_id,
@@ -116,6 +168,7 @@ def fetch_leaderboard(db_path: Path) -> list[dict]:
             SELECT
                 model_name,
                 MAX(macro_f1) AS best_macro_f1,
+                MAX(quadratic_kappa) AS best_quadratic_kappa,
                 MAX(accuracy) AS best_accuracy,
                 COUNT(*) AS total_runs,
                 MAX(created_at) AS last_run_at

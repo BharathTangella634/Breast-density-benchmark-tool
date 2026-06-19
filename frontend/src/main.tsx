@@ -34,6 +34,7 @@ type HistoryItem = {
 type LeaderboardItem = {
   model_name: string;
   best_macro_f1: number;
+  best_quadratic_kappa: number | null;
   best_accuracy: number;
   total_runs: number;
   last_run_at: string;
@@ -58,6 +59,14 @@ function App() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardItem[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const evaluatedModelCount = leaderboard.length;
+  const evaluatedRunCount = history.length;
+  const bestMacroF1 = leaderboard.length > 0 ? Math.max(...leaderboard.map((item) => item.best_macro_f1)) : null;
+  const quadraticKappaScores = leaderboard
+    .map((item) => item.best_quadratic_kappa)
+    .filter((value): value is number => value !== null && value !== undefined);
+  const bestQuadraticKappa =
+    quadraticKappaScores.length > 0 ? Math.max(...quadraticKappaScores) : null;
 
   async function loadDashboardData() {
     const [historyResponse, leaderboardResponse] = await Promise.all([
@@ -122,11 +131,11 @@ function App() {
 
       <section className="hero">
         <div className="hero-copy">
-          <p className="eyebrow">Private mammogram benchmark tool</p>
+          <p className="eyebrow">Mammogram benchmark tool</p>
           <h1>Breast Density Benchmark Tool</h1>
           <p>
             Upload prediction CSV files from your SVM, CNN, or PyTorch pipeline. The server evaluates them
-            against hidden local labels, saves the run history, and updates the leaderboard.
+            against the benchmark answer key, saves the run history, and updates the leaderboard.
           </p>
         </div>
         <form className="evaluation-panel" onSubmit={submitEvaluation}>
@@ -160,8 +169,8 @@ function App() {
       <section className="workflow">
         <article>
           <Database size={26} />
-          <h2>Private subset</h2>
-          <p>Keep the EMBED images and true labels local while the website only accepts compact prediction files.</p>
+          <h2>Benchmark set</h2>
+          <p>Evaluate predictions across the balanced EMBED and IBIA test set with 200 cases per density class.</p>
         </article>
         <article>
           <Activity size={26} />
@@ -172,6 +181,41 @@ function App() {
           <BarChart3 size={26} />
           <h2>Leaderboard</h2>
           <p>Track best model performance with macro F1 as the main score and accuracy as a visible summary.</p>
+        </article>
+      </section>
+
+      <section className="overview">
+        <article>
+          <Activity size={24} />
+          <div>
+            <span>Models evaluated</span>
+            <strong>{evaluatedModelCount}</strong>
+            <p>{evaluatedRunCount} saved upload{evaluatedRunCount === 1 ? "" : "s"}</p>
+          </div>
+        </article>
+        <article>
+          <Database size={24} />
+          <div>
+            <span>Benchmark images</span>
+            <strong>800</strong>
+            <p>A/B/C/D balanced at 200 each</p>
+          </div>
+        </article>
+        <article>
+          <BarChart3 size={24} />
+          <div>
+            <span>Best macro F1</span>
+            <strong>{formatMetric(bestMacroF1)}</strong>
+            <p>Primary leaderboard metric</p>
+          </div>
+        </article>
+        <article>
+          <Activity size={24} />
+          <div>
+            <span>Best kappa</span>
+            <strong>{formatMetric(bestQuadraticKappa)}</strong>
+            <p>Quadratic weighted agreement</p>
+          </div>
         </article>
       </section>
 
@@ -203,26 +247,30 @@ function App() {
             <p className="eyebrow">Leaderboard</p>
             <h2>Best score per model</h2>
           </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Model</th>
-                <th>Macro F1</th>
-                <th>Accuracy</th>
-                <th>Runs</th>
-              </tr>
-            </thead>
-            <tbody>
-              {leaderboard.map((item) => (
-                <tr key={item.model_name}>
-                  <td>{item.model_name}</td>
-                  <td>{formatMetric(item.best_macro_f1)}</td>
-                  <td>{formatMetric(item.best_accuracy)}</td>
-                  <td>{item.total_runs}</td>
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Model</th>
+                  <th>Macro F1</th>
+                  <th>Kappa</th>
+                  <th>Accuracy</th>
+                  <th>Runs</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {leaderboard.map((item) => (
+                  <tr key={item.model_name}>
+                    <td>{item.model_name}</td>
+                    <td>{formatMetric(item.best_macro_f1)}</td>
+                    <td>{formatMetric(item.best_quadratic_kappa)}</td>
+                    <td>{formatMetric(item.best_accuracy)}</td>
+                    <td>{item.total_runs}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
 
         <section className="table-panel">
@@ -230,26 +278,28 @@ function App() {
             <p className="eyebrow">History</p>
             <h2>Saved evaluations</h2>
           </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Run</th>
-                <th>Model</th>
-                <th>Accuracy</th>
-                <th>Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              {history.map((item) => (
-                <tr key={item.id}>
-                  <td>#{item.id}</td>
-                  <td>{item.model_name}</td>
-                  <td>{formatMetric(item.accuracy)}</td>
-                  <td>{formatDate(item.created_at)}</td>
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Run</th>
+                  <th>Model</th>
+                  <th>Accuracy</th>
+                  <th>Time</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {history.map((item) => (
+                  <tr key={item.id}>
+                    <td>#{item.id}</td>
+                    <td>{item.model_name}</td>
+                    <td>{formatMetric(item.accuracy)}</td>
+                    <td>{formatDate(item.created_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
       </section>
     </main>
