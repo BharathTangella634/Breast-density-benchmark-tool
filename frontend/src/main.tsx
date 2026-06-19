@@ -156,7 +156,7 @@ function App() {
             />
           </label>
           <p className="helper-text">
-            Upload the intern prediction CSV with image_id,prediction or image_id,p0,p1,p2,p3 columns.
+            Upload the prediction CSV with image_id,prediction or image_id,p0,p1,p2,p3 columns.
           </p>
           <button type="submit" disabled={loading || !file || !modelName.trim()}>
             <Upload size={18} />
