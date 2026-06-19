@@ -229,7 +229,7 @@ function App() {
         </div>
         <div className="density-content">
           <div className="density-heading">
-            <p className="eyebrow">Benchmark label guide</p>
+            <p className="eyebrow">Breast Density label guide</p>
           </div>
           <div className="density-class-grid" aria-label="Breast density class descriptions">
             <article>
