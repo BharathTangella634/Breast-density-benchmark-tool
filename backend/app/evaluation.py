@@ -9,6 +9,8 @@ from sklearn.metrics import (
     balanced_accuracy_score,
     cohen_kappa_score,
     f1_score,
+    precision_score,
+    recall_score,
 )
 
 
@@ -24,6 +26,8 @@ class EvaluationResult:
     accuracy: float
     balanced_accuracy: float
     weighted_f1: float
+    macro_precision: float
+    macro_recall: float
     quadratic_kappa: float | None
     per_class_f1: dict[str, float]
 
@@ -112,6 +116,10 @@ def evaluate_predictions(
         accuracy=float(accuracy_score(y_true, y_pred)),
         balanced_accuracy=float(balanced_accuracy_score(y_true, y_pred)),
         weighted_f1=float(f1_score(y_true, y_pred, labels=list(allowed_labels), average="weighted", zero_division=0)),
+        macro_precision=float(
+            precision_score(y_true, y_pred, labels=list(allowed_labels), average="macro", zero_division=0)
+        ),
+        macro_recall=float(recall_score(y_true, y_pred, labels=list(allowed_labels), average="macro", zero_division=0)),
         quadratic_kappa=None if quadratic_kappa is None else float(quadratic_kappa),
         per_class_f1={label: float(score) for label, score in zip(allowed_labels, per_class_values)},
     )

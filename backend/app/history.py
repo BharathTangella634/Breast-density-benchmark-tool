@@ -29,11 +29,21 @@ def initialize_history_db(db_path: Path) -> None:
                 accuracy REAL NOT NULL,
                 balanced_accuracy REAL NOT NULL,
                 weighted_f1 REAL NOT NULL,
+                macro_precision REAL,
+                macro_recall REAL,
                 quadratic_kappa REAL,
                 created_at TEXT NOT NULL
             )
             """
         )
+        existing_columns = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(evaluation_runs)").fetchall()
+        }
+        if "macro_precision" not in existing_columns:
+            connection.execute("ALTER TABLE evaluation_runs ADD COLUMN macro_precision REAL")
+        if "macro_recall" not in existing_columns:
+            connection.execute("ALTER TABLE evaluation_runs ADD COLUMN macro_recall REAL")
         connection.execute(
             """
             DELETE FROM evaluation_runs
@@ -80,6 +90,8 @@ def record_evaluation(
                     accuracy = ?,
                     balanced_accuracy = ?,
                     weighted_f1 = ?,
+                    macro_precision = ?,
+                    macro_recall = ?,
                     quadratic_kappa = ?,
                     created_at = ?
                 WHERE source_filename = ?
@@ -92,6 +104,8 @@ def record_evaluation(
                     payload["accuracy"],
                     payload["balanced_accuracy"],
                     payload["weighted_f1"],
+                    payload["macro_precision"],
+                    payload["macro_recall"],
                     payload["quadratic_kappa"],
                     created_at,
                     source_filename,
@@ -110,9 +124,11 @@ def record_evaluation(
                 accuracy,
                 balanced_accuracy,
                 weighted_f1,
+                macro_precision,
+                macro_recall,
                 quadratic_kappa,
                 created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 payload["model_name"],
@@ -123,6 +139,8 @@ def record_evaluation(
                 payload["accuracy"],
                 payload["balanced_accuracy"],
                 payload["weighted_f1"],
+                payload["macro_precision"],
+                payload["macro_recall"],
                 payload["quadratic_kappa"],
                 created_at,
             ),
@@ -151,6 +169,8 @@ def fetch_history(db_path: Path) -> list[dict]:
                 accuracy,
                 balanced_accuracy,
                 weighted_f1,
+                macro_precision,
+                macro_recall,
                 quadratic_kappa,
                 created_at
             FROM evaluation_runs
@@ -169,6 +189,8 @@ def fetch_leaderboard(db_path: Path) -> list[dict]:
                 model_name,
                 MAX(macro_f1) AS best_macro_f1,
                 MAX(quadratic_kappa) AS best_quadratic_kappa,
+                MAX(macro_precision) AS best_macro_precision,
+                MAX(macro_recall) AS best_macro_recall,
                 MAX(accuracy) AS best_accuracy,
                 COUNT(*) AS total_runs,
                 MAX(created_at) AS last_run_at

@@ -463,8 +463,9 @@ button:disabled {
 }
 
 .table-scroll {
-  max-height: 480px;
-  overflow: auto;
+  max-height: 260px;
+  overflow-x: auto;
+  overflow-y: scroll;
   border-top: 1px solid var(--line);
   scrollbar-color: var(--teal) var(--aqua);
   scrollbar-width: thin;
@@ -486,7 +487,14 @@ button:disabled {
 }
 
 .table-scroll table {
-  min-width: 540px;
+  min-width: 720px;
+}
+
+.scroll-note {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 table {

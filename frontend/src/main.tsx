@@ -1,6 +1,16 @@
 import React, { FormEvent, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Activity, BarChart3, Database, Upload } from "lucide-react";
+import {
+  Award,
+  BarChart3,
+  ClipboardCheck,
+  Database,
+  Gauge,
+  History,
+  Images,
+  Trophy,
+  Upload,
+} from "lucide-react";
 import "./styles.css";
 
 type EvaluationResponse = {
@@ -35,6 +45,8 @@ type LeaderboardItem = {
   model_name: string;
   best_macro_f1: number;
   best_quadratic_kappa: number | null;
+  best_macro_precision: number | null;
+  best_macro_recall: number | null;
   best_accuracy: number;
   total_runs: number;
   last_run_at: string;
@@ -173,12 +185,12 @@ function App() {
           <p>Evaluate predictions across the balanced EMBED and IBIA test set with 200 cases per density class.</p>
         </article>
         <article>
-          <Activity size={26} />
+          <History size={26} />
           <h2>Saved history</h2>
           <p>Each evaluation run is stored so you can compare repeated submissions from different model names.</p>
         </article>
         <article>
-          <BarChart3 size={26} />
+          <Trophy size={26} />
           <h2>Leaderboard</h2>
           <p>Track best model performance with macro F1 as the main score and accuracy as a visible summary.</p>
         </article>
@@ -186,7 +198,7 @@ function App() {
 
       <section className="overview">
         <article>
-          <Activity size={24} />
+          <ClipboardCheck size={24} />
           <div>
             <span>Models evaluated</span>
             <strong>{evaluatedModelCount}</strong>
@@ -194,7 +206,7 @@ function App() {
           </div>
         </article>
         <article>
-          <Database size={24} />
+          <Images size={24} />
           <div>
             <span>Benchmark images</span>
             <strong>800</strong>
@@ -202,7 +214,7 @@ function App() {
           </div>
         </article>
         <article>
-          <BarChart3 size={24} />
+          <Gauge size={24} />
           <div>
             <span>Best macro F1</span>
             <strong>{formatMetric(bestMacroF1)}</strong>
@@ -210,7 +222,7 @@ function App() {
           </div>
         </article>
         <article>
-          <Activity size={24} />
+          <Award size={24} />
           <div>
             <span>Best kappa</span>
             <strong>{formatMetric(bestQuadraticKappa)}</strong>
@@ -298,6 +310,8 @@ function App() {
                 <tr>
                   <th>Model</th>
                   <th>Macro F1</th>
+                  <th>Precision</th>
+                  <th>Recall</th>
                   <th>Kappa</th>
                   <th>Accuracy</th>
                   <th>Runs</th>
@@ -308,6 +322,8 @@ function App() {
                   <tr key={item.model_name}>
                     <td>{item.model_name}</td>
                     <td>{formatMetric(item.best_macro_f1)}</td>
+                    <td>{formatMetric(item.best_macro_precision)}</td>
+                    <td>{formatMetric(item.best_macro_recall)}</td>
                     <td>{formatMetric(item.best_quadratic_kappa)}</td>
                     <td>{formatMetric(item.best_accuracy)}</td>
                     <td>{item.total_runs}</td>
@@ -316,6 +332,9 @@ function App() {
               </tbody>
             </table>
           </div>
+          {leaderboard.length > 4 && (
+            <p className="scroll-note">Scroll inside this table to compare more models.</p>
+          )}
         </section>
 
         <section className="table-panel">
@@ -345,6 +364,9 @@ function App() {
               </tbody>
             </table>
           </div>
+          {history.length > 5 && (
+            <p className="scroll-note">Scroll inside this table to see older runs such as #3, #2, and #1.</p>
+          )}
         </section>
       </section>
     </main>
