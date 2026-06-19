@@ -333,7 +333,7 @@ function App() {
             </table>
           </div>
           {leaderboard.length > 4 && (
-            <p className="scroll-note">Scroll inside this table to compare more models.</p>
+            <p className="scroll-note">Scroll down to see more models.</p>
           )}
         </section>
 
@@ -364,9 +364,6 @@ function App() {
               </tbody>
             </table>
           </div>
-          {history.length > 5 && (
-            <p className="scroll-note">Scroll inside this table to see older runs such as #3, #2, and #1.</p>
-          )}
         </section>
       </section>
     </main>
