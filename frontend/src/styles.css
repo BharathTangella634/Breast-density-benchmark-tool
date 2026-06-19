@@ -298,9 +298,26 @@ button:disabled {
 }
 
 .table-scroll {
-  max-height: 360px;
+  max-height: 480px;
   overflow: auto;
   border-top: 1px solid var(--line);
+  scrollbar-color: var(--teal) var(--aqua);
+  scrollbar-width: thin;
+}
+
+.table-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.table-scroll::-webkit-scrollbar-track {
+  background: var(--aqua);
+}
+
+.table-scroll::-webkit-scrollbar-thumb {
+  background: var(--teal);
+  border: 2px solid var(--aqua);
+  border-radius: 999px;
 }
 
 .table-scroll table {
