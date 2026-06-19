@@ -134,7 +134,7 @@ function App() {
           <p className="eyebrow">Mammogram benchmark tool</p>
           <h1>Breast Density Benchmark Tool</h1>
           <p>
-            Upload prediction CSV files from your SVM, CNN, or PyTorch pipeline. The server evaluates them
+            Upload CSV files from your SVM, CNN, or PyTorch pipeline. The tool evaluates them
             against the benchmark answer key, saves the run history, and updates the leaderboard.
           </p>
         </div>
@@ -217,6 +217,51 @@ function App() {
             <p>Quadratic weighted agreement</p>
           </div>
         </article>
+      </section>
+
+      <section className="density-guide">
+        <div className="density-image" tabIndex={0} aria-label="Density reference image. Hover or focus to see details.">
+          <img src="/density-labels-corrected.png" alt="Mammogram examples for density labels A, B, C, and D" />
+          <div className="density-image-caption">
+            <span>Density reference</span>
+            <p>A visual guide for understanding the benchmark classes used during evaluation.</p>
+          </div>
+        </div>
+        <div className="density-content">
+          <div className="density-heading">
+            <p className="eyebrow">Benchmark label guide</p>
+          </div>
+          <div className="density-class-grid" aria-label="Breast density class descriptions">
+            <article>
+              <strong>A</strong>
+              <div>
+                <h3>Almost entirely fatty</h3>
+                <p>Low fibroglandular density with mostly fatty tissue appearance.</p>
+              </div>
+            </article>
+            <article>
+              <strong>B</strong>
+              <div>
+                <h3>Scattered density</h3>
+                <p>Scattered areas of fibroglandular tissue mixed with fatty regions.</p>
+              </div>
+            </article>
+            <article>
+              <strong>C</strong>
+              <div>
+                <h3>Heterogeneously dense</h3>
+                <p>More dense tissue is visible, making classification more challenging.</p>
+              </div>
+            </article>
+            <article>
+              <strong>D</strong>
+              <div>
+                <h3>Extremely dense</h3>
+                <p>High fibroglandular density with brighter tissue across the mammogram.</p>
+              </div>
+            </article>
+          </div>
+        </div>
       </section>
 
       {result && (
