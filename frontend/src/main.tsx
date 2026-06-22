@@ -28,22 +28,6 @@ type EvaluationResponse = {
   per_class_f1: Record<string, number>;
 };
 
-type HistoryItem = {
-  id: number;
-  model_name: string;
-  submission_type: string;
-  source_filename: string;
-  sample_count: number;
-  macro_f1: number;
-  accuracy: number;
-  balanced_accuracy: number;
-  weighted_f1: number;
-  macro_precision: number | null;
-  macro_recall: number | null;
-  quadratic_kappa: number | null;
-  created_at: string;
-};
-
 type LeaderboardItem = {
   model_name: string;
   best_macro_f1: number;
@@ -79,7 +63,6 @@ function App() {
   const [modelName, setModelName] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [result, setResult] = useState<EvaluationResponse | null>(null);
-  const [history, setHistory] = useState<HistoryItem[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardItem[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -103,16 +86,7 @@ function App() {
   );
 
   async function loadDashboardData() {
-    const [historyResponse, leaderboardResponse] = await Promise.all([
-      fetch(`${API_BASE}/api/history`),
-      fetch(`${API_BASE}/api/leaderboard`),
-    ]);
-
-    if (historyResponse.ok) {
-      const historyPayload = await historyResponse.json();
-      setHistory(historyPayload.items ?? []);
-    }
-
+    const leaderboardResponse = await fetch(`${API_BASE}/api/leaderboard`);
     if (leaderboardResponse.ok) {
       const leaderboardPayload = await leaderboardResponse.json();
       setLeaderboard(leaderboardPayload.items ?? []);
@@ -406,34 +380,6 @@ function App() {
           )}
         </section>
 
-        <section className="table-panel">
-          <div className="section-heading">
-            <p className="eyebrow">History</p>
-            <h2>Saved evaluations</h2>
-          </div>
-          <div className="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>Run</th>
-                  <th>Model</th>
-                  <th>Accuracy</th>
-                  <th>Time</th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.map((item) => (
-                  <tr key={item.id}>
-                    <td>#{item.id}</td>
-                    <td>{item.model_name}</td>
-                    <td>{formatMetric(item.accuracy)}</td>
-                    <td>{formatDate(item.created_at)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
       </section>
     </main>
   );
