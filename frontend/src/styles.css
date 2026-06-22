@@ -441,6 +441,7 @@ button:disabled {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
+  align-items: start;
   width: min(1120px, calc(100% - 40px));
   margin: 0 auto 72px;
 }
@@ -460,6 +461,41 @@ button:disabled {
 
 .section-heading .eyebrow {
   margin: 0 0 6px;
+}
+
+.leaderboard-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 14px;
+}
+
+.sort-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sort-button,
+.export-button {
+  min-height: 34px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--teal);
+  padding: 7px 11px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.sort-button.active {
+  border-color: var(--teal);
+  background: var(--teal);
+  color: #fff;
+}
+
+.export-button {
+  flex: 0 0 auto;
 }
 
 .table-scroll {
@@ -510,6 +546,20 @@ td {
   font-size: 14px;
 }
 
+tbody tr:hover {
+  background: rgba(218, 243, 244, 0.35);
+}
+
+.top-ranked-row {
+  background: linear-gradient(90deg, rgba(20, 134, 140, 0.14), rgba(218, 243, 244, 0.34));
+}
+
+.top-ranked-row td:first-child {
+  border-left: 4px solid var(--teal);
+  color: var(--teal);
+  font-weight: 800;
+}
+
 th {
   position: sticky;
   top: 0;
@@ -540,6 +590,11 @@ th {
 
   .density-image {
     min-height: 460px;
+  }
+
+  .leaderboard-toolbar {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .logo-strip {

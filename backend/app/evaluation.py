@@ -51,6 +51,15 @@ def _normalize_predictions(frame: pd.DataFrame) -> pd.DataFrame:
         normalized = frame[["image_id", "prediction"]].rename(columns={"prediction": "predicted_label"})
         return normalized
 
+    prediction_columns = [column for column in frame.columns if column.lower().startswith("predictions_")]
+    if len(prediction_columns) == 1:
+        normalized = frame[["image_id", prediction_columns[0]]].rename(columns={prediction_columns[0]: "predicted_label"})
+        return normalized
+
+    if len(prediction_columns) > 1:
+        columns = ", ".join(prediction_columns)
+        raise ValueError(f"Predictions CSV has multiple predictions_* columns. Keep only one prediction column: {columns}.")
+
     probability_columns = ["p0", "p1", "p2", "p3"]
     if all(column in frame.columns for column in probability_columns):
         probability_values = frame[probability_columns].apply(pd.to_numeric, errors="coerce")
@@ -63,7 +72,7 @@ def _normalize_predictions(frame: pd.DataFrame) -> pd.DataFrame:
         normalized["predicted_label"] = [label_names[index] for index in predicted_indices]
         return normalized
 
-    raise ValueError("Predictions CSV must contain predicted_label, prediction, or p0,p1,p2,p3.")
+    raise ValueError("Predictions CSV must contain predicted_label, prediction, one predictions_* column, or p0,p1,p2,p3.")
 
 
 def evaluate_predictions(

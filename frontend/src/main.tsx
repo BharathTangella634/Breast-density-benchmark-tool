@@ -1,10 +1,11 @@
-import React, { FormEvent, useEffect, useState } from "react";
+import React, { FormEvent, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Award,
   BarChart3,
   ClipboardCheck,
   Database,
+  Download,
   Gauge,
   History,
   Images,
@@ -37,6 +38,8 @@ type HistoryItem = {
   accuracy: number;
   balanced_accuracy: number;
   weighted_f1: number;
+  macro_precision: number | null;
+  macro_recall: number | null;
   quadratic_kappa: number | null;
   created_at: string;
 };
@@ -53,6 +56,15 @@ type LeaderboardItem = {
 };
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://127.0.0.1:8000";
+type SortKey = "best_macro_f1" | "best_accuracy" | "best_macro_precision" | "best_macro_recall" | "best_quadratic_kappa";
+
+const sortOptions: { key: SortKey; label: string }[] = [
+  { key: "best_macro_f1", label: "Macro F1" },
+  { key: "best_accuracy", label: "Accuracy" },
+  { key: "best_macro_precision", label: "Precision" },
+  { key: "best_macro_recall", label: "Recall" },
+  { key: "best_quadratic_kappa", label: "Kappa" },
+];
 
 function formatMetric(value: number | null | undefined) {
   if (value === null || value === undefined || Number.isNaN(value)) return "N/A";
@@ -71,6 +83,7 @@ function App() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardItem[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [leaderboardSort, setLeaderboardSort] = useState<SortKey>("best_macro_f1");
   const evaluatedModelCount = leaderboard.length;
   const bestMacroF1 = leaderboard.length > 0 ? Math.max(...leaderboard.map((item) => item.best_macro_f1)) : null;
   const quadraticKappaScores = leaderboard
@@ -78,6 +91,16 @@ function App() {
     .filter((value): value is number => value !== null && value !== undefined);
   const bestQuadraticKappa =
     quadraticKappaScores.length > 0 ? Math.max(...quadraticKappaScores) : null;
+  const sortedLeaderboard = useMemo(
+    () =>
+      [...leaderboard].sort((first, second) => {
+        const firstValue = first[leaderboardSort] ?? Number.NEGATIVE_INFINITY;
+        const secondValue = second[leaderboardSort] ?? Number.NEGATIVE_INFINITY;
+        if (secondValue !== firstValue) return secondValue - firstValue;
+        return first.model_name.localeCompare(second.model_name);
+      }),
+    [leaderboard, leaderboardSort],
+  );
 
   async function loadDashboardData() {
     const [historyResponse, leaderboardResponse] = await Promise.all([
@@ -128,6 +151,34 @@ function App() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function exportLeaderboard() {
+    const headers = ["rank", "model", "macro_f1", "precision", "recall", "kappa", "accuracy", "runs"];
+    const rows = sortedLeaderboard.map((item, index) => [
+      index + 1,
+      item.model_name,
+      formatMetric(item.best_macro_f1),
+      formatMetric(item.best_macro_precision),
+      formatMetric(item.best_macro_recall),
+      formatMetric(item.best_quadratic_kappa),
+      formatMetric(item.best_accuracy),
+      item.total_runs,
+    ]);
+    const csv = [headers, ...rows]
+      .map((row) =>
+        row
+          .map((value) => `"${String(value).replaceAll('"', '""')}"`)
+          .join(","),
+      )
+      .join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "breast_density_leaderboard.csv";
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   return (
@@ -302,10 +353,29 @@ function App() {
             <p className="eyebrow">Leaderboard</p>
             <h2>Best score per model</h2>
           </div>
+          <div className="leaderboard-toolbar" aria-label="Leaderboard controls">
+            <div className="sort-controls" aria-label="Sort leaderboard by metric">
+              {sortOptions.map((option) => (
+                <button
+                  className={leaderboardSort === option.key ? "sort-button active" : "sort-button"}
+                  key={option.key}
+                  onClick={() => setLeaderboardSort(option.key)}
+                  type="button"
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <button className="export-button" onClick={exportLeaderboard} type="button">
+              <Download size={16} />
+              Export
+            </button>
+          </div>
           <div className="table-scroll">
             <table>
               <thead>
                 <tr>
+                  <th>Rank</th>
                   <th>Model</th>
                   <th>Macro F1</th>
                   <th>Precision</th>
@@ -316,8 +386,9 @@ function App() {
                 </tr>
               </thead>
               <tbody>
-                {leaderboard.map((item) => (
-                  <tr key={item.model_name}>
+                {sortedLeaderboard.map((item, index) => (
+                  <tr className={index === 0 ? "top-ranked-row" : ""} key={item.model_name}>
+                    <td>#{index + 1}</td>
                     <td>{item.model_name}</td>
                     <td>{formatMetric(item.best_macro_f1)}</td>
                     <td>{formatMetric(item.best_macro_precision)}</td>
