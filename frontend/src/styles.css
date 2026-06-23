@@ -124,6 +124,83 @@ input {
 
 .combined-upload-panel {
   gap: 16px;
+  position: relative;
+}
+
+.panel-help {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: -2px;
+  min-height: 34px;
+  position: relative;
+}
+
+.help-trigger {
+  width: auto;
+  min-height: 34px;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(218, 243, 244, 0.52);
+  color: var(--teal);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0 12px;
+  text-transform: none;
+}
+
+.help-trigger:hover,
+.help-trigger:focus-visible {
+  border-color: var(--teal);
+  background: rgba(218, 243, 244, 0.9);
+  color: #0e6f75;
+  outline: none;
+}
+
+.help-popover {
+  position: absolute;
+  top: 36px;
+  left: 0;
+  z-index: 3;
+  width: min(330px, calc(100vw - 56px));
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(253, 252, 252, 0.98);
+  box-shadow: 0 18px 48px rgba(20, 134, 140, 0.18);
+  padding: 16px;
+}
+
+.help-popover::before {
+  position: absolute;
+  top: -7px;
+  left: 16px;
+  width: 12px;
+  height: 12px;
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+  background: rgba(253, 252, 252, 0.98);
+  content: "";
+  transform: rotate(45deg);
+}
+
+.help-popover strong {
+  color: var(--teal);
+  font-size: 13px;
+  text-transform: uppercase;
+}
+
+.help-popover ul {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding-left: 18px;
+}
+
+.help-popover li {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .upload-drop {

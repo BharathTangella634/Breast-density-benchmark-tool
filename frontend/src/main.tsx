@@ -9,6 +9,7 @@ import {
   Gauge,
   History,
   Images,
+  Info,
   Trophy,
   Upload,
 } from "lucide-react";
@@ -69,6 +70,7 @@ function App() {
   const [onnxMessage, setOnnxMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [onnxLoading, setOnnxLoading] = useState(false);
+  const [showRequirements, setShowRequirements] = useState(false);
   const [leaderboardSort, setLeaderboardSort] = useState<SortKey>("best_macro_f1");
   const evaluatedModelCount = leaderboard.length;
   const bestMacroF1 = leaderboard.length > 0 ? Math.max(...leaderboard.map((item) => item.best_macro_f1)) : null;
@@ -218,8 +220,8 @@ function App() {
             <span>Benchmark Tool</span>
           </h1>
           <p>
-            Evaluate ready-made prediction CSVs now, or prepare ONNX model submissions for server-side
-            inference on the benchmark set.
+            Upload prediction CSVs for instant benchmarking, or submit an ONNX model to 
+            run inference directly on the benchmark dataset.
           </p>
         </div>
 
@@ -270,6 +272,29 @@ function App() {
             <span>Select .onnx model</span>
             <small>{onnxFile ? onnxFile.name : "ONNX file with output order A,B,C,D"}</small>
           </label>
+
+          <div className="panel-help">
+            <button
+              type="button"
+              className="help-trigger"
+              aria-label="Show submission requirements"
+              aria-expanded={showRequirements}
+              onClick={() => setShowRequirements((isVisible) => !isVisible)}
+            >
+              <Info size={16} />
+              
+            </button>
+            {showRequirements && (
+              <div className="help-popover" role="dialog" aria-label="Submission requirements">
+                <strong>Submission requirements</strong>
+                <ul>
+                  <li>CSV: image_id + A-D predictions/probabilities.</li>
+                  <li>ONNX input: [1,1,1024,1024].</li>
+                  <li>Output: 4 scores ordered A,B,C,D.</li>
+                </ul>
+              </div>
+            )}
+          </div>
 
           <button type="submit" disabled={loading || onnxLoading || !modelName.trim() || (!csvFile && !onnxFile)}>
             <Upload size={18} />
