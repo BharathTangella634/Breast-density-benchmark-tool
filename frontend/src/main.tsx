@@ -1,4 +1,4 @@
-import React, { FormEvent, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Award,
@@ -61,11 +61,14 @@ function formatDate(value: string) {
 
 function App() {
   const [modelName, setModelName] = useState("");
-  const [file, setFile] = useState<File | null>(null);
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [onnxFile, setOnnxFile] = useState<File | null>(null);
   const [result, setResult] = useState<EvaluationResponse | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardItem[]>([]);
   const [error, setError] = useState("");
+  const [onnxMessage, setOnnxMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [onnxLoading, setOnnxLoading] = useState(false);
   const [leaderboardSort, setLeaderboardSort] = useState<SortKey>("best_macro_f1");
   const evaluatedModelCount = leaderboard.length;
   const bestMacroF1 = leaderboard.length > 0 ? Math.max(...leaderboard.map((item) => item.best_macro_f1)) : null;
@@ -99,17 +102,17 @@ function App() {
     });
   }, []);
 
-  async function submitEvaluation(event: FormEvent) {
-    event.preventDefault();
-    if (!modelName.trim() || !file) return;
+  async function submitEvaluation() {
+    if (!modelName.trim() || !csvFile) return;
 
     setLoading(true);
     setError("");
+    setOnnxMessage("");
     setResult(null);
 
     const form = new FormData();
     form.append("model_name", modelName.trim());
-    form.append("predictions", file);
+    form.append("predictions", csvFile);
 
     try {
       const response = await fetch(`${API_BASE}/api/evaluate`, {
@@ -124,6 +127,48 @@ function App() {
       setError(err instanceof Error ? err.message : "Evaluation failed");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function submitOnnxEvaluation() {
+    if (!modelName.trim() || !onnxFile) return;
+
+    setOnnxLoading(true);
+    setError("");
+    setOnnxMessage("");
+
+    const form = new FormData();
+    form.append("model_name", modelName.trim());
+    form.append("model_file", onnxFile);
+
+    try {
+      const response = await fetch(`${API_BASE}/api/evaluate-onnx`, {
+        method: "POST",
+        body: form,
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.detail || "ONNX evaluation failed");
+      setOnnxMessage(payload.detail || "ONNX model uploaded.");
+    } catch (err) {
+      setOnnxMessage(err instanceof Error ? err.message : "ONNX evaluation failed");
+    } finally {
+      setOnnxLoading(false);
+    }
+  }
+
+  async function submitSelectedEvaluation() {
+    if (csvFile && onnxFile) {
+      setError("Choose either a prediction CSV or an ONNX model, not both.");
+      return;
+    }
+
+    if (csvFile) {
+      await submitEvaluation();
+      return;
+    }
+
+    if (onnxFile) {
+      await submitOnnxEvaluation();
     }
   }
 
@@ -168,37 +213,70 @@ function App() {
       <section className="hero">
         <div className="hero-copy">
           <p className="eyebrow">Mammogram benchmark tool</p>
-          <h1>Breast Density Benchmark Tool</h1>
+          <h1>
+            Breast Density
+            <span>Benchmark Tool</span>
+          </h1>
           <p>
-            Upload CSV files from your SVM, CNN, or PyTorch pipeline. The tool evaluates them
-            against the benchmark answer key, saves the run history, and updates the leaderboard.
+            Evaluate ready-made prediction CSVs now, or prepare ONNX model submissions for server-side
+            inference on the benchmark set.
           </p>
         </div>
-        <form className="evaluation-panel" onSubmit={submitEvaluation}>
+
+        <form
+          className="evaluation-panel combined-upload-panel"
+          onSubmit={(event) => {
+            event.preventDefault();
+            submitSelectedEvaluation();
+          }}
+        >
           <label>
             Model name
             <input
               value={modelName}
               onChange={(event) => setModelName(event.target.value)}
-              placeholder="SVM baseline"
+              placeholder="ConvNeXt baseline"
             />
           </label>
-          <label>
-            Prediction CSV
+
+          <label className="upload-drop">
             <input
+              key={onnxFile ? "csv-reset" : "csv"}
               type="file"
               accept=".csv,text/csv"
-              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+              onChange={(event) => {
+                const selectedFile = event.target.files?.[0] ?? null;
+                setCsvFile(selectedFile);
+                if (selectedFile) setOnnxFile(null);
+              }}
             />
+            <span>Select prediction CSV</span>
+            <small>{csvFile ? csvFile.name : "image_id,prediction or probability columns"}</small>
           </label>
-          <p className="helper-text">
-            Upload the prediction CSV with image_id,prediction or image_id,p0,p1,p2,p3 columns.
-          </p>
-          <button type="submit" disabled={loading || !file || !modelName.trim()}>
+
+          <div className="choice-divider"><span>or</span></div>
+
+          <label className="upload-drop">
+            <input
+              key={csvFile ? "onnx-reset" : "onnx"}
+              type="file"
+              accept=".onnx"
+              onChange={(event) => {
+                const selectedFile = event.target.files?.[0] ?? null;
+                setOnnxFile(selectedFile);
+                if (selectedFile) setCsvFile(null);
+              }}
+            />
+            <span>Select .onnx model</span>
+            <small>{onnxFile ? onnxFile.name : "ONNX file with output order A,B,C,D"}</small>
+          </label>
+
+          <button type="submit" disabled={loading || onnxLoading || !modelName.trim() || (!csvFile && !onnxFile)}>
             <Upload size={18} />
-            {loading ? "Evaluating" : "Proceed"}
+            {loading ? "Evaluating" : onnxLoading ? "Checking" : "Evaluate"}
           </button>
           {error && <p className="error">{error}</p>}
+          {onnxMessage && <p className="helper-text">{onnxMessage}</p>}
         </form>
       </section>
 

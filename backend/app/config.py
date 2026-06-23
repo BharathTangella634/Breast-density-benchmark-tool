@@ -11,6 +11,10 @@ class Settings(BaseSettings):
 
     ground_truth_csv: Path = Path("data/private/ground_truth.csv")
     history_db: Path = Path("data/private/evaluation_history.db")
+    image_manifest_csv: Path = Path("data/benchmark_prep/benchmark_test_public.csv")
+    image_root: Path = Path("data/private/benchmark_test_png")
+    onnx_input_size: int = 1024
+    onnx_input_channels: int = 1
     allowed_labels: tuple[str, ...] = ("A", "B", "C", "D")
     enable_quadratic_kappa: bool = True
 

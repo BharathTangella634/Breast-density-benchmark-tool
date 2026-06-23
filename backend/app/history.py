@@ -46,18 +46,7 @@ def initialize_history_db(db_path: Path) -> None:
             connection.execute("ALTER TABLE evaluation_runs ADD COLUMN macro_recall REAL")
         connection.execute(
             """
-            DELETE FROM evaluation_runs
-            WHERE id NOT IN (
-                SELECT MAX(id)
-                FROM evaluation_runs
-                GROUP BY source_filename
-            )
-            """
-        )
-        connection.execute(
-            """
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_evaluation_runs_source_filename
-            ON evaluation_runs (source_filename)
+            DROP INDEX IF EXISTS idx_evaluation_runs_source_filename
             """
         )
 
@@ -73,47 +62,7 @@ def record_evaluation(
     created_at = datetime.now(timezone.utc).isoformat()
 
     with _connect(db_path) as connection:
-        existing = connection.execute(
-            "SELECT id FROM evaluation_runs WHERE source_filename = ?",
-            (source_filename,),
-        ).fetchone()
-
-        if existing:
-            connection.execute(
-                """
-                UPDATE evaluation_runs
-                SET
-                    model_name = ?,
-                    submission_type = ?,
-                    sample_count = ?,
-                    macro_f1 = ?,
-                    accuracy = ?,
-                    balanced_accuracy = ?,
-                    weighted_f1 = ?,
-                    macro_precision = ?,
-                    macro_recall = ?,
-                    quadratic_kappa = ?,
-                    created_at = ?
-                WHERE source_filename = ?
-                """,
-                (
-                    payload["model_name"],
-                    submission_type,
-                    payload["sample_count"],
-                    payload["macro_f1"],
-                    payload["accuracy"],
-                    payload["balanced_accuracy"],
-                    payload["weighted_f1"],
-                    payload["macro_precision"],
-                    payload["macro_recall"],
-                    payload["quadratic_kappa"],
-                    created_at,
-                    source_filename,
-                ),
-            )
-            run_id = existing["id"]
-        else:
-            cursor = connection.execute(
+        cursor = connection.execute(
             """
             INSERT INTO evaluation_runs (
                 model_name,
@@ -144,8 +93,8 @@ def record_evaluation(
                 payload["quadratic_kappa"],
                 created_at,
             ),
-            )
-            run_id = cursor.lastrowid
+        )
+        run_id = cursor.lastrowid
 
     return {
         "id": run_id,
