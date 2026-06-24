@@ -106,10 +106,12 @@ Rules:
 ONNX model requirements:
 
 ```text
-Input:  grayscale 1024x1024 image tensor
-Shape:  [1,1,1024,1024]
-Output: 4 class scores ordered A,B,C,D
+File:   one standalone .onnx file containing the full inference pipeline
+Input:  float32 grayscale mammogram tensor shaped [1,1,1024,1024]
+Output: either 4 scores ordered A,B,C,D or class index 0=A,1=B,2=C,3=D
 ```
+
+The ONNX file must contain all steps required for inference after receiving the benchmark input tensor, so the backend can run it directly and obtain the final A/B/C/D prediction. If the full pipeline cannot be exported into one ONNX file, submit a prediction CSV instead.
 
 The backend runs inference on the private benchmark images, converts model outputs to predicted labels, evaluates the predictions, saves the run, and updates the leaderboard.
 

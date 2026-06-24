@@ -1,8 +1,12 @@
+import logging
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+
+# Configure logging before importing inference (which detects backend at import time)
+logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(name)s | %(message)s")
 
 from app.config import settings
 from app.evaluation import evaluate_predictions

@@ -40,6 +40,13 @@ type LeaderboardItem = {
   last_run_at: string;
 };
 
+type HistoryItem = {
+  id: number;
+  model_name: string;
+  submission_type: string;
+  source_filename: string;
+};
+
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://127.0.0.1:8000";
 type SortKey = "best_macro_f1" | "best_accuracy" | "best_macro_precision" | "best_macro_recall" | "best_quadratic_kappa";
 
@@ -66,6 +73,7 @@ function App() {
   const [onnxFile, setOnnxFile] = useState<File | null>(null);
   const [result, setResult] = useState<EvaluationResponse | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardItem[]>([]);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
   const [error, setError] = useState("");
   const [onnxMessage, setOnnxMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -73,6 +81,12 @@ function App() {
   const [showRequirements, setShowRequirements] = useState(false);
   const [leaderboardSort, setLeaderboardSort] = useState<SortKey>("best_macro_f1");
   const evaluatedModelCount = leaderboard.length;
+  const csvModelCount = new Set(
+    history.filter((item) => item.submission_type === "csv_predictions").map((item) => item.model_name),
+  ).size;
+  const onnxModelCount = new Set(
+    history.filter((item) => item.submission_type.startsWith("onnx_model")).map((item) => item.model_name),
+  ).size;
   const bestMacroF1 = leaderboard.length > 0 ? Math.max(...leaderboard.map((item) => item.best_macro_f1)) : null;
   const quadraticKappaScores = leaderboard
     .map((item) => item.best_quadratic_kappa)
@@ -91,10 +105,17 @@ function App() {
   );
 
   async function loadDashboardData() {
-    const leaderboardResponse = await fetch(`${API_BASE}/api/leaderboard`);
+    const [leaderboardResponse, historyResponse] = await Promise.all([
+      fetch(`${API_BASE}/api/leaderboard`),
+      fetch(`${API_BASE}/api/history`),
+    ]);
     if (leaderboardResponse.ok) {
       const leaderboardPayload = await leaderboardResponse.json();
       setLeaderboard(leaderboardPayload.items ?? []);
+    }
+    if (historyResponse.ok) {
+      const historyPayload = await historyResponse.json();
+      setHistory(historyPayload.items ?? []);
     }
   }
 
@@ -138,6 +159,7 @@ function App() {
     setOnnxLoading(true);
     setError("");
     setOnnxMessage("");
+    setResult(null);
 
     const form = new FormData();
     form.append("model_name", modelName.trim());
@@ -150,7 +172,8 @@ function App() {
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.detail || "ONNX evaluation failed");
-      setOnnxMessage(payload.detail || "ONNX model uploaded.");
+      setResult(payload);
+      await loadDashboardData();
     } catch (err) {
       setOnnxMessage(err instanceof Error ? err.message : "ONNX evaluation failed");
     } finally {
@@ -282,16 +305,29 @@ function App() {
               onClick={() => setShowRequirements((isVisible) => !isVisible)}
             >
               <Info size={16} />
-              
+              <span>Submission requirements</span>
             </button>
             {showRequirements && (
               <div className="help-popover" role="dialog" aria-label="Submission requirements">
                 <strong>Submission requirements</strong>
-                <ul>
-                  <li>CSV: image_id + A-D predictions/probabilities.</li>
-                  <li>ONNX input: [1,1,1024,1024].</li>
-                  <li>Output: 4 scores ordered A,B,C,D.</li>
-                </ul>
+                <div className="requirement-list">
+                  <p>
+                    <span>CSV</span>
+                    image_id with A-D predictions, or probability columns in A-D order.
+                  </p>
+                  <p>
+                    <span>ONNX file</span>
+                    complete inference pipeline that converts the input tensor into the final density prediction.
+                  </p>
+                  <p>
+                    <span>ONNX input</span>
+                    receives grayscale mammogram tensor [1,1,1024,1024].
+                  </p>
+                  <p>
+                    <span>ONNX output</span>
+                    returns 4 scores A,B,C,D or class index 0=A,1=B,2=C,3=D.
+                  </p>
+                </div>
               </div>
             )}
           </div>
@@ -329,6 +365,9 @@ function App() {
           <div>
             <span>Models evaluated</span>
             <strong>{evaluatedModelCount}</strong>
+            <p>
+              CSV {csvModelCount} • ONNX {onnxModelCount}
+            </p>
           </div>
         </article>
         <article>
