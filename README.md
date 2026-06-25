@@ -160,6 +160,9 @@ BENCHMARK_IMAGE_MANIFEST_CSV=/home/tanuh/EMBED/Breast-density-benchmark-tool/dat
 BENCHMARK_IMAGE_ROOT=/home/tanuh/EMBED/Breast-density-benchmark-tool/data/private/benchmark_test_data_png
 BENCHMARK_ONNX_INPUT_SIZE=1024
 BENCHMARK_ONNX_INPUT_CHANNELS=1
+BENCHMARK_MAX_CSV_UPLOAD_MB=25
+BENCHMARK_MAX_ONNX_UPLOAD_MB=750
+BENCHMARK_ONNX_TIMEOUT_SECONDS=3600
 ```
 
 Do not commit `backend/.env`.

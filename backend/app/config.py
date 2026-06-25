@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     image_root: Path = Path("data/private/benchmark_test_png")
     onnx_input_size: int = 1024
     onnx_input_channels: int = 1
+    max_csv_upload_mb: int = 25
+    max_onnx_upload_mb: int = 750
+    onnx_timeout_seconds: int = 3600
     allowed_labels: tuple[str, ...] = ("A", "B", "C", "D")
     enable_quadratic_kappa: bool = True
 
