@@ -346,7 +346,7 @@ function App() {
                 <div className="requirement-list">
                   <p>
                     <span>CSV</span>
-                    image_id with A-D predictions, or probability columns in A-D order.
+                    image_id with A-D prediction or probability column in A-D order.
                   </p>
                   <p>
                     <span>ONNX file</span>
