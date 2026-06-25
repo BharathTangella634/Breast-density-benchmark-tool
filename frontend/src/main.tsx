@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Award,
@@ -67,6 +67,22 @@ function formatDate(value: string) {
   return new Date(value).toLocaleString();
 }
 
+function scrollToElementSlowly(element: HTMLElement, duration = 1200) {
+  const start = window.scrollY;
+  const target = element.getBoundingClientRect().top + window.scrollY - 18;
+  const distance = target - start;
+  const startedAt = performance.now();
+
+  function step(now: number) {
+    const elapsed = Math.min((now - startedAt) / duration, 1);
+    const eased = 1 - Math.pow(1 - elapsed, 3);
+    window.scrollTo(0, start + distance * eased);
+    if (elapsed < 1) requestAnimationFrame(step);
+  }
+
+  requestAnimationFrame(step);
+}
+
 function App() {
   const [modelName, setModelName] = useState("");
   const [csvFile, setCsvFile] = useState<File | null>(null);
@@ -76,10 +92,12 @@ function App() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [error, setError] = useState("");
   const [onnxMessage, setOnnxMessage] = useState("");
+  const [evaluationStatus, setEvaluationStatus] = useState("");
   const [loading, setLoading] = useState(false);
   const [onnxLoading, setOnnxLoading] = useState(false);
   const [showRequirements, setShowRequirements] = useState(false);
   const [leaderboardSort, setLeaderboardSort] = useState<SortKey>("best_macro_f1");
+  const resultRef = useRef<HTMLElement | null>(null);
   const evaluatedModelCount = leaderboard.length;
   const csvModelCount = new Set(
     history.filter((item) => item.submission_type === "csv_predictions").map((item) => item.model_name),
@@ -125,12 +143,19 @@ function App() {
     });
   }, []);
 
+  useEffect(() => {
+    if (result) {
+      if (resultRef.current) scrollToElementSlowly(resultRef.current);
+    }
+  }, [result]);
+
   async function submitEvaluation() {
     if (!modelName.trim() || !csvFile) return;
 
     setLoading(true);
     setError("");
     setOnnxMessage("");
+    setEvaluationStatus("CSV is being evaluated. Please wait.");
     setResult(null);
 
     const form = new FormData();
@@ -145,8 +170,10 @@ function App() {
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.detail || "Evaluation failed");
       setResult(payload);
+      setEvaluationStatus("");
       await loadDashboardData();
     } catch (err) {
+      setEvaluationStatus("");
       setError(err instanceof Error ? err.message : "Evaluation failed");
     } finally {
       setLoading(false);
@@ -159,6 +186,7 @@ function App() {
     setOnnxLoading(true);
     setError("");
     setOnnxMessage("");
+    setEvaluationStatus("ONNX model is being evaluated on the private benchmark. Please wait.");
     setResult(null);
 
     const form = new FormData();
@@ -173,9 +201,14 @@ function App() {
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.detail || "ONNX evaluation failed");
       setResult(payload);
+      setEvaluationStatus("");
       await loadDashboardData();
     } catch (err) {
-      setOnnxMessage(err instanceof Error ? err.message : "ONNX evaluation failed");
+      setEvaluationStatus("");
+      const detail = err instanceof Error ? err.message : "ONNX evaluation failed";
+      setOnnxMessage(
+        `Model upload failed: ${detail} Please try the prediction CSV version if the full pipeline ONNX cannot meet the submission requirements.`,
+      );
     } finally {
       setOnnxLoading(false);
     }
@@ -334,8 +367,9 @@ function App() {
 
           <button type="submit" disabled={loading || onnxLoading || !modelName.trim() || (!csvFile && !onnxFile)}>
             <Upload size={18} />
-            {loading ? "Evaluating" : onnxLoading ? "Checking" : "Evaluate"}
+            {loading ? "Evaluating CSV" : onnxLoading ? "Evaluating model" : "Evaluate"}
           </button>
+          {evaluationStatus && <p className="status-text">{evaluationStatus}</p>}
           {error && <p className="error">{error}</p>}
           {onnxMessage && <p className="helper-text">{onnxMessage}</p>}
         </form>
@@ -442,7 +476,7 @@ function App() {
       </section>
 
       {result && (
-        <section className="results">
+        <section className="results" ref={resultRef}>
           <div>
             <p className="eyebrow">Evaluation complete</p>
             <h2>{result.model_name}</h2>

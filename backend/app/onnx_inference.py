@@ -161,7 +161,11 @@ def _downgrade_opset_if_needed(model_path: Path, target_opset: int = 17) -> Path
     """
     import onnx
 
-    model = onnx.load(str(model_path))
+    try:
+        model = onnx.load(str(model_path))
+    except Exception:
+        # If external data is missing, try loading without it
+        model = onnx.load(str(model_path), load_external_data=False)
     current_opset = model.opset_import[0].version if model.opset_import else 0
 
     if current_opset <= target_opset:

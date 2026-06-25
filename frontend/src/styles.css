@@ -302,6 +302,14 @@ button:disabled {
   font-size: 14px;
 }
 
+.status-text {
+  margin: -4px 0 0;
+  color: var(--teal);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
 .helper-text {
   margin: -4px 0 0;
   color: var(--muted);
