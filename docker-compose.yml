@@ -1,0 +1,25 @@
+services:
+  backend:
+    build: ./backend
+    env_file: ./backend/.env
+    volumes:
+      - benchmark_data:/data
+      - onnx_uploads:/data/onnx_uploads
+      - tensor_cache:/data/tensor_cache
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE: ""
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  benchmark_data:
+  onnx_uploads:
+  tensor_cache:
