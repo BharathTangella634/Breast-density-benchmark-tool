@@ -5,29 +5,22 @@ Upload one prediction CSV for the benchmark test set.
 Required columns:
 
 ```csv
-image_id,prediction
+image_id,predicted_label
 embed_0001,C
 ibia_0001,B
 ```
 
 Allowed labels:
 
-- `A` = Density A
-- `B` = Density B
-- `C` = Density C
-- `D` = Density D
-
-Probability format is also accepted:
-
-```csv
-image_id,p0,p1,p2,p3
-embed_0001,0.10,0.20,0.60,0.10
-ibia_0001,0.05,0.75,0.15,0.05
-```
+- `A` = Density A (almost entirely fatty)
+- `B` = Density B (scattered density)
+- `C` = Density C (heterogeneously dense)
+- `D` = Density D (extremely dense)
 
 Rules:
 
-- Do not change `image_id`
-- Do not skip rows
-- Submit exactly one prediction per image
-- Upload only the CSV, not the dataset
+- Use exact `image_id` values from the public manifest (e.g. `embed_0001`, `ibia_0001`)
+- Include predictions for all 800 benchmark images — partial submissions are rejected
+- One prediction per image — no duplicate `image_id` values
+- Labels must be uppercase A, B, C, or D
+- Do not include extra columns — only `image_id` and `predicted_label`

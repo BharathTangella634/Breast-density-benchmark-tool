@@ -1,5 +1,4 @@
 frontend/node_modules/
-frontend/package-lock.json
 frontend/dist/
 backend/.venv/
 __pycache__/
@@ -8,4 +7,32 @@ __pycache__/
 .DS_Store
 backend/data/
 data/private/
+data/benchmark_prep/benchmark_labels_private.csv
 submissions/
+
+# Zip files (benchmark data, test data)
+*.zip
+
+# SQLite databases
+*.db
+
+# Tensor cache (generated at runtime)
+tensor_cache/
+
+# ONNX upload staging directory
+onnx_uploads/
+
+# Claude config
+.claude/
+test_files/
+
+# Virtual env / misc
+env/
+venv/
+.venv/
+
+# Root-level logo/image duplicates (originals in frontend/public/)
+/tanuh.ico
+/tanuh.png
+/IISc_Logo.png
+/MoE_LOGO_p.png

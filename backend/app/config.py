@@ -17,9 +17,15 @@ class Settings(BaseSettings):
     onnx_input_channels: int = 1
     max_csv_upload_mb: int = 25
     max_onnx_upload_mb: int = 750
+    onnx_upload_dir: Path = Path("data/private/onnx_uploads")
     onnx_timeout_seconds: int = 3600
     allowed_labels: tuple[str, ...] = ("A", "B", "C", "D")
     enable_quadratic_kappa: bool = True
+
+    database_url: str | None = None
+    allowed_origins: list[str] = []
+    gcs_bucket: str | None = None
+    gcs_data_prefix: str = "benchmark"
 
     model_config = SettingsConfigDict(
         env_prefix="BENCHMARK_",
