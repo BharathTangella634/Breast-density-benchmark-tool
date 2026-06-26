@@ -3,7 +3,7 @@ services:
     build: ./backend
     env_file: ./backend/.env
     volumes:
-      - benchmark_data:/data
+      - ./data:/data
       - onnx_uploads:/data/onnx_uploads
       - tensor_cache:/data/tensor_cache
     restart: unless-stopped
@@ -20,6 +20,5 @@ services:
     restart: unless-stopped
 
 volumes:
-  benchmark_data:
   onnx_uploads:
   tensor_cache:
