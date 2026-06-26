@@ -9,12 +9,10 @@ from sklearn.metrics import (
     balanced_accuracy_score,
     cohen_kappa_score,
     f1_score,
-    precision_score,
-    recall_score,
 )
 
 
-REQUIRED_PREDICTION_COLUMNS = {"image_id"}
+REQUIRED_PREDICTION_COLUMNS = {"image_id", "predicted_label"}
 REQUIRED_GROUND_TRUTH_COLUMNS = {"image_id", "true_label"}
 
 
@@ -26,8 +24,6 @@ class EvaluationResult:
     accuracy: float
     balanced_accuracy: float
     weighted_f1: float
-    macro_precision: float
-    macro_recall: float
     quadratic_kappa: float | None
     per_class_f1: dict[str, float]
 
@@ -43,36 +39,31 @@ def _validate_columns(frame: pd.DataFrame, required: set[str], name: str) -> Non
         raise ValueError(f"{name} is missing required column(s): {columns}")
 
 
-def _normalize_predictions(frame: pd.DataFrame) -> pd.DataFrame:
-    if "predicted_label" in frame.columns:
-        return frame[["image_id", "predicted_label"]]
+def _validate_predictions(frame: pd.DataFrame, *, allowed_labels: tuple[str, ...]) -> pd.DataFrame:
+    """Validate and return predictions with only image_id and predicted_label columns."""
+    frame = frame[["image_id", "predicted_label"]].copy()
+    frame["image_id"] = frame["image_id"].str.strip()
+    frame["predicted_label"] = frame["predicted_label"].str.strip().str.upper()
 
-    if "prediction" in frame.columns:
-        normalized = frame[["image_id", "prediction"]].rename(columns={"prediction": "predicted_label"})
-        return normalized
+    empty_rows = frame["predicted_label"].isna() | (frame["predicted_label"] == "")
+    if empty_rows.any():
+        count = int(empty_rows.sum())
+        raise ValueError(f"CSV has {count} row(s) with empty predicted_label values.")
 
-    prediction_columns = [column for column in frame.columns if column.lower().startswith("predictions_")]
-    if len(prediction_columns) == 1:
-        normalized = frame[["image_id", prediction_columns[0]]].rename(columns={prediction_columns[0]: "predicted_label"})
-        return normalized
+    duplicates = frame[frame["image_id"].duplicated(keep=False)]
+    if not duplicates.empty:
+        examples = ", ".join(duplicates["image_id"].unique()[:5])
+        raise ValueError(f"CSV has duplicate image_id values: {examples}")
 
-    if len(prediction_columns) > 1:
-        columns = ", ".join(prediction_columns)
-        raise ValueError(f"Predictions CSV has multiple predictions_* columns. Keep only one prediction column: {columns}.")
+    unknown = set(frame["predicted_label"]).difference(allowed_labels)
+    if unknown:
+        labels = ", ".join(sorted(unknown))
+        raise ValueError(
+            f"predicted_label must be one of {', '.join(allowed_labels)}. "
+            f"Found unsupported label(s): {labels}"
+        )
 
-    probability_columns = ["p0", "p1", "p2", "p3"]
-    if all(column in frame.columns for column in probability_columns):
-        probability_values = frame[probability_columns].apply(pd.to_numeric, errors="coerce")
-        if probability_values.isna().any().any():
-            raise ValueError("Probability submission contains non-numeric values in p0,p1,p2,p3.")
-
-        label_names = ["A", "B", "C", "D"]
-        predicted_indices = probability_values.to_numpy().argmax(axis=1)
-        normalized = frame[["image_id"]].copy()
-        normalized["predicted_label"] = [label_names[index] for index in predicted_indices]
-        return normalized
-
-    raise ValueError("Predictions CSV must contain predicted_label, prediction, one predictions_* column, or p0,p1,p2,p3.")
+    return frame
 
 
 def evaluate_predictions(
@@ -85,23 +76,43 @@ def evaluate_predictions(
 ) -> EvaluationResult:
     """Score an uploaded predictions CSV against the private local labels."""
 
-    predictions = _read_csv(predictions_csv)
+    try:
+        predictions = _read_csv(predictions_csv)
+    except Exception:
+        raise ValueError(
+            "Could not parse the uploaded file as CSV. "
+            "Please upload a valid CSV with columns: image_id, predicted_label"
+        )
+
+    if predictions.empty:
+        raise ValueError("Uploaded CSV is empty.")
+
     ground_truth = _read_csv(ground_truth_csv)
 
     _validate_columns(predictions, REQUIRED_PREDICTION_COLUMNS, "Predictions CSV")
     _validate_columns(ground_truth, REQUIRED_GROUND_TRUTH_COLUMNS, "Ground-truth CSV")
 
-    predictions = _normalize_predictions(predictions).dropna()
+    predictions = _validate_predictions(predictions, allowed_labels=allowed_labels)
     ground_truth = ground_truth[["image_id", "true_label"]].dropna()
 
+    expected_count = len(ground_truth)
     merged = ground_truth.merge(predictions, on="image_id", how="inner")
-    if merged.empty:
-        raise ValueError("No prediction rows matched the private ground-truth image_id values.")
 
-    unknown = set(merged["predicted_label"]).difference(allowed_labels)
-    if unknown:
-        labels = ", ".join(sorted(unknown))
-        raise ValueError(f"Predictions contain unsupported label(s): {labels}")
+    if merged.empty:
+        raise ValueError(
+            "No image_id values matched the benchmark set. "
+            "Make sure your CSV uses the exact image_id values from the public manifest "
+            "(e.g. embed_0001, ibia_0001)."
+        )
+
+    if len(merged) < expected_count:
+        missing_ids = set(ground_truth["image_id"]) - set(predictions["image_id"])
+        examples = ", ".join(sorted(missing_ids)[:5])
+        raise ValueError(
+            f"CSV has predictions for only {len(merged)} of {expected_count} benchmark images. "
+            f"All {expected_count} image_id values are required. "
+            f"Missing examples: {examples}"
+        )
 
     y_true = merged["true_label"]
     y_pred = merged["predicted_label"]
@@ -125,10 +136,6 @@ def evaluate_predictions(
         accuracy=float(accuracy_score(y_true, y_pred)),
         balanced_accuracy=float(balanced_accuracy_score(y_true, y_pred)),
         weighted_f1=float(f1_score(y_true, y_pred, labels=list(allowed_labels), average="weighted", zero_division=0)),
-        macro_precision=float(
-            precision_score(y_true, y_pred, labels=list(allowed_labels), average="macro", zero_division=0)
-        ),
-        macro_recall=float(recall_score(y_true, y_pred, labels=list(allowed_labels), average="macro", zero_division=0)),
         quadratic_kappa=None if quadratic_kappa is None else float(quadratic_kappa),
         per_class_f1={label: float(score) for label, score in zip(allowed_labels, per_class_values)},
     )

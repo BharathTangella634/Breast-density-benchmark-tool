@@ -9,7 +9,7 @@ The benchmark data and true labels stay on the server. Users submit either a pre
 - Evaluates breast-density classification models for classes `A`, `B`, `C`, and `D`.
 - Supports prediction CSV uploads.
 - Supports ONNX model uploads for local server-side inference.
-- Saves every evaluation run in a local SQLite history database.
+- Saves every evaluation run in a database (SQLite locally, Cloud SQL PostgreSQL in production).
 - Shows a leaderboard with the best score per model.
 - Keeps benchmark images and ground-truth labels private.
 
@@ -22,8 +22,6 @@ Secondary metrics:
 - Accuracy
 - Balanced accuracy
 - Weighted F1
-- Macro precision
-- Macro recall
 - Quadratic weighted kappa
 
 ## Current Benchmark Data
@@ -76,30 +74,21 @@ The website accepts one submission path at a time.
 
 ### Prediction CSV
 
-Label format:
+Required format:
 
 ```csv
-image_id,prediction
+image_id,predicted_label
 embed_0001,C
 ibia_0001,B
 ```
 
-Probability format:
-
-```csv
-image_id,p0,p1,p2,p3
-embed_0001,0.10,0.20,0.60,0.10
-ibia_0001,0.05,0.75,0.15,0.05
-```
-
-For probability CSVs, columns `p0,p1,p2,p3` correspond to `A,B,C,D`.
-
 Rules:
 
-- Keep `image_id` unchanged.
-- Use labels only from `A`, `B`, `C`, `D`.
-- Submit one prediction per benchmark image.
-- Do not include true labels in the submitted CSV.
+- Use exact `image_id` values from the public manifest.
+- Use labels only from `A`, `B`, `C`, `D` (uppercase).
+- Submit predictions for all 800 benchmark images. Partial submissions are rejected.
+- One prediction per image. No duplicate `image_id` values.
+- Only two columns: `image_id` and `predicted_label`.
 
 ### ONNX Model
 
@@ -111,7 +100,14 @@ Input:  float32 grayscale mammogram tensor shaped [1,1,1024,1024]
 Output: either 4 scores ordered A,B,C,D or class index 0=A,1=B,2=C,3=D
 ```
 
-The ONNX file must contain all steps required for inference after receiving the benchmark input tensor, so the backend can run it directly and obtain the final A/B/C/D prediction. If the full pipeline cannot be exported into one ONNX file, submit a prediction CSV instead.
+The ONNX file must be self-contained with all weights embedded. If your export produces a separate `.data` file, re-export with embedded weights:
+
+- PyTorch: `torch.onnx.export(model, ..., 'model.onnx')` without external data thresholds.
+- ONNX: `onnx.save(model, 'model.onnx', save_as_external_data=False)`.
+
+If the full pipeline cannot be exported into one ONNX file, submit a prediction CSV instead.
+
+ONNX models are queued and evaluated one at a time. The model file is saved to disk during queuing, loaded for inference, and deleted after evaluation completes. The queue survives server restarts.
 
 The backend runs inference on the private benchmark images, converts model outputs to predicted labels, evaluates the predictions, saves the run, and updates the leaderboard.
 
@@ -121,7 +117,7 @@ For CSV submissions:
 
 1. The backend reads the uploaded prediction CSV.
 2. It joins predictions with the hidden labels using `image_id`.
-3. It computes macro F1, accuracy, balanced accuracy, weighted F1, precision, recall, and quadratic kappa.
+3. It computes macro F1, accuracy, balanced accuracy, weighted F1, and quadratic kappa.
 4. It saves the run in SQLite.
 5. The leaderboard updates with the best score per model.
 
@@ -133,7 +129,7 @@ For ONNX submissions:
 4. It runs model inference locally.
 5. It evaluates the generated predictions and saves the run like a CSV submission.
 
-Uploading the same model name or same filename again creates a new run. The leaderboard still shows the best score per model and the run count increases.
+Each model name must be unique. Submitting a model name that already exists on the leaderboard is rejected. Choose a different name for each submission.
 
 ## Project Structure
 
@@ -151,19 +147,23 @@ data/private/             Private local data, ignored by git
 
 ## Environment Variables
 
-Create `backend/.env` locally:
+Copy `backend/.env.example` to `backend/.env` and fill in paths:
 
 ```env
-BENCHMARK_GROUND_TRUTH_CSV=/home/tanuh/EMBED/Breast-density-benchmark-tool/data/benchmark_prep/benchmark_labels_private.csv
-BENCHMARK_HISTORY_DB=/home/tanuh/EMBED/Breast-density-benchmark-tool/data/private/evaluation_history.db
-BENCHMARK_IMAGE_MANIFEST_CSV=/home/tanuh/EMBED/Breast-density-benchmark-tool/data/benchmark_prep/benchmark_test_public.csv
-BENCHMARK_IMAGE_ROOT=/home/tanuh/EMBED/Breast-density-benchmark-tool/data/private/benchmark_test_data_png
-BENCHMARK_ONNX_INPUT_SIZE=1024
-BENCHMARK_ONNX_INPUT_CHANNELS=1
-BENCHMARK_MAX_CSV_UPLOAD_MB=25
-BENCHMARK_MAX_ONNX_UPLOAD_MB=750
-BENCHMARK_ONNX_TIMEOUT_SECONDS=3600
+BENCHMARK_GROUND_TRUTH_CSV=./data/benchmark_prep/benchmark_labels_private.csv
+BENCHMARK_HISTORY_DB=./data/private/evaluation_history.db
+BENCHMARK_IMAGE_MANIFEST_CSV=./data/benchmark_prep/benchmark_test_public.csv
+BENCHMARK_IMAGE_ROOT=./data/private/benchmark_test_data_png
 ```
+
+For production with Cloud SQL, add:
+
+```env
+BENCHMARK_DATABASE_URL=mysql://benchmark_user:password@CLOUD_SQL_IP:3306/benchmark_db
+BENCHMARK_ALLOWED_ORIGINS=["https://yourdomain.com"]
+```
+
+When `BENCHMARK_DATABASE_URL` is set, the app uses Cloud SQL (MySQL) instead of SQLite. When unset, it uses the local SQLite file at `BENCHMARK_HISTORY_DB`.
 
 Do not commit `backend/.env`.
 
@@ -253,11 +253,63 @@ Before committing, check:
 git status
 ```
 
+## Deploy to GCloud VM
+
+### 1. Create infrastructure
+
+- Create a GCloud VM (Ubuntu recommended).
+- Create a Cloud SQL MySQL instance (or use an existing one and create a new database).
+- Create a GCloud Storage bucket and upload benchmark images and labels.
+
+### 2. Initialize VM data
+
+Upload benchmark data to a GCloud Storage bucket, then run the init script on the VM:
+
+```bash
+GCS_BUCKET=your-bucket-name bash scripts/init_vm.sh
+```
+
+This copies images and labels from the bucket to the VM's local filesystem.
+
+### 3. Migrate existing results
+
+To bring local SQLite evaluation results into Cloud SQL:
+
+```bash
+python scripts/migrate_sqlite_to_cloudsql.py \
+  --sqlite-path data/private/evaluation_history.db \
+  --database-url mysql://benchmark_user:pass@CLOUD_SQL_IP:3306/benchmark_db
+```
+
+### 4. Configure and run
+
+Set `backend/.env` on the VM with the Cloud SQL connection string and data paths. Then:
+
+```bash
+pip install -r backend/requirements.txt
+uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port 8000
+```
+
+Build the frontend for production:
+
+```bash
+cd frontend
+VITE_API_BASE=https://yourdomain.com npm run build
+```
+
+Serve the `frontend/dist/` folder with nginx or similar.
+
+### 5. Map domain
+
+Point your domain's DNS A record to the VM's public IP. Configure nginx as a reverse proxy for the API and static file server for the frontend.
+
 ## Useful API Routes
 
 ```text
-POST /api/evaluate       Evaluate prediction CSV
-POST /api/evaluate-onnx  Evaluate ONNX model
+POST /api/evaluate       Evaluate prediction CSV (instant)
+POST /api/submit-onnx    Submit ONNX model to queue
+GET  /api/job/{job_id}   Poll ONNX job status and result
+GET  /api/queue          Queue info (running, waiting, avg time)
 GET  /api/leaderboard    Read best score per model
 GET  /api/history        Read saved evaluation runs
 ```

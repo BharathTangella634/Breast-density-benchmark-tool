@@ -29,8 +29,18 @@ logger = logging.getLogger(__name__)
 
 IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg")
 
-# In-memory tensor cache: populated once, reused for every submission
 _tensor_cache: dict[str, np.ndarray] | None = None
+
+
+def clear_tensor_cache(cache_dir: Path | None = None) -> None:
+    """Free the in-memory tensor cache and optionally delete the disk .npz file."""
+    global _tensor_cache
+    _tensor_cache = None
+    logger.info("In-memory tensor cache cleared")
+    if cache_dir and cache_dir.exists():
+        for npz in cache_dir.glob("preprocessed_*.npz"):
+            npz.unlink()
+            logger.info("Deleted disk cache: %s", npz)
 
 
 # ---------------------------------------------------------------------------
@@ -293,7 +303,26 @@ def _run_pytorch_cuda(
 
     device = torch.device("cuda")
 
-    # Convert ONNX model → PyTorch module and move to GPU
+    import onnx as _onnx
+    try:
+        onnx_model = _onnx.load(str(model_path))
+        model_input = onnx_model.graph.input[0]
+        input_shape = [
+            d.dim_value if d.dim_value > 0 else None
+            for d in model_input.type.tensor_type.shape.dim
+        ]
+        _validate_image_input_shape(
+            input_shape=input_shape,
+            input_channels=cached_tensors[image_ids[0]].shape[1],
+            input_size=cached_tensors[image_ids[0]].shape[2],
+        )
+    except ValueError:
+        raise
+    except Exception as exc:
+        raise ValueError(
+            f"The uploaded .onnx file is corrupted or not a valid ONNX model. Details: {exc}"
+        ) from exc
+
     logger.info("Converting ONNX model to PyTorch …")
     model = convert(str(model_path))
     model = model.to(device)
@@ -324,7 +353,7 @@ def _run_pytorch_cuda(
             for idx, predicted_index in enumerate(predictions):
                 rows.append({
                     "image_id": batch_ids[idx],
-                    "prediction": allowed_labels[predicted_index],
+                    "predicted_label": allowed_labels[predicted_index],
                 })
 
             if batch_start % 100 < batch_size:
@@ -361,9 +390,16 @@ def _run_ort(
     sess_options.inter_op_num_threads = num_cores
     sess_options.execution_mode = ort.ExecutionMode.ORT_PARALLEL
 
-    session = ort.InferenceSession(
-        str(model_path), sess_options=sess_options, providers=providers
-    )
+    try:
+        session = ort.InferenceSession(
+            str(model_path), sess_options=sess_options, providers=providers
+        )
+    except Exception as exc:
+        raise ValueError(
+            "The uploaded .onnx file is corrupted or not a valid ONNX model. "
+            f"Details: {exc}"
+        ) from exc
+
     active_provider = session.get_providers()[0]
     logger.info(
         "ORT session: provider=%s, threads=%d",
@@ -372,6 +408,11 @@ def _run_ort(
 
     input_meta = session.get_inputs()[0]
     input_name = input_meta.name
+    _validate_image_input_shape(
+        input_shape=list(input_meta.shape),
+        input_channels=cached_tensors[image_ids[0]].shape[1],
+        input_size=cached_tensors[image_ids[0]].shape[2],
+    )
     output_name = session.get_outputs()[0].name
 
     rows: list[dict[str, str]] = []
@@ -385,7 +426,7 @@ def _run_ort(
             expected_class_count=expected_class_count,
             batch_size=1,
         )[0]
-        rows.append({"image_id": image_id, "prediction": allowed_labels[predicted_index]})
+        rows.append({"image_id": image_id, "predicted_label": allowed_labels[predicted_index]})
 
         if i % 100 == 0:
             logger.info("Progress: %d / %d images", i + 1, len(image_ids))

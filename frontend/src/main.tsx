@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Award,
-  BarChart3,
   ClipboardCheck,
   Database,
   Download,
@@ -10,6 +9,7 @@ import {
   History,
   Images,
   Info,
+  Loader,
   Trophy,
   Upload,
 } from "lucide-react";
@@ -33,11 +33,10 @@ type LeaderboardItem = {
   model_name: string;
   best_macro_f1: number;
   best_quadratic_kappa: number | null;
-  best_macro_precision: number | null;
-  best_macro_recall: number | null;
   best_accuracy: number;
   total_runs: number;
   last_run_at: string;
+  submission_type: string | null;
 };
 
 type HistoryItem = {
@@ -47,14 +46,18 @@ type HistoryItem = {
   source_filename: string;
 };
 
+type QueueInfo = {
+  queued: number;
+  running: { job_id: string; model_name: string; elapsed_seconds: number } | null;
+  avg_inference_seconds: number | null;
+};
+
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://127.0.0.1:8000";
-type SortKey = "best_macro_f1" | "best_accuracy" | "best_macro_precision" | "best_macro_recall" | "best_quadratic_kappa";
+type SortKey = "best_macro_f1" | "best_accuracy" | "best_quadratic_kappa";
 
 const sortOptions: { key: SortKey; label: string }[] = [
   { key: "best_macro_f1", label: "Macro F1" },
   { key: "best_accuracy", label: "Accuracy" },
-  { key: "best_macro_precision", label: "Precision" },
-  { key: "best_macro_recall", label: "Recall" },
   { key: "best_quadratic_kappa", label: "Kappa" },
 ];
 
@@ -63,8 +66,18 @@ function formatMetric(value: number | null | undefined) {
   return value.toFixed(4);
 }
 
-function formatDate(value: string) {
-  return new Date(value).toLocaleString();
+function formatDuration(seconds: number) {
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  const m = Math.floor(seconds / 60);
+  const s = Math.round(seconds % 60);
+  return s > 0 ? `${m}m ${s}s` : `${m}m`;
+}
+
+function formatSubmissionType(type: string | null | undefined) {
+  if (!type) return "—";
+  if (type === "csv_predictions") return "CSV";
+  if (type.startsWith("onnx")) return "ONNX";
+  return type;
 }
 
 function scrollToElementSlowly(element: HTMLElement, duration = 1200) {
@@ -91,13 +104,17 @@ function App() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardItem[]>([]);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [error, setError] = useState("");
-  const [onnxMessage, setOnnxMessage] = useState("");
   const [evaluationStatus, setEvaluationStatus] = useState("");
   const [loading, setLoading] = useState(false);
   const [onnxLoading, setOnnxLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [showRequirements, setShowRequirements] = useState(false);
   const [leaderboardSort, setLeaderboardSort] = useState<SortKey>("best_macro_f1");
+  const [queueInfo, setQueueInfo] = useState<QueueInfo | null>(null);
+  const [backendDown, setBackendDown] = useState(false);
+  const [successBanner, setSuccessBanner] = useState("");
   const resultRef = useRef<HTMLElement | null>(null);
+
   const evaluatedModelCount = leaderboard.length;
   const csvModelCount = new Set(
     history.filter((item) => item.submission_type === "csv_predictions").map((item) => item.model_name),
@@ -123,30 +140,45 @@ function App() {
   );
 
   async function loadDashboardData() {
-    const [leaderboardResponse, historyResponse] = await Promise.all([
-      fetch(`${API_BASE}/api/leaderboard`),
-      fetch(`${API_BASE}/api/history`),
-    ]);
-    if (leaderboardResponse.ok) {
-      const leaderboardPayload = await leaderboardResponse.json();
-      setLeaderboard(leaderboardPayload.items ?? []);
-    }
-    if (historyResponse.ok) {
-      const historyPayload = await historyResponse.json();
-      setHistory(historyPayload.items ?? []);
+    try {
+      const [leaderboardResponse, historyResponse] = await Promise.all([
+        fetch(`${API_BASE}/api/leaderboard`),
+        fetch(`${API_BASE}/api/history`),
+      ]);
+      if (leaderboardResponse.ok) {
+        const leaderboardPayload = await leaderboardResponse.json();
+        setLeaderboard(leaderboardPayload.items ?? []);
+      }
+      if (historyResponse.ok) {
+        const historyPayload = await historyResponse.json();
+        setHistory(historyPayload.items ?? []);
+      }
+      setBackendDown(false);
+    } catch {
+      setBackendDown(true);
     }
   }
 
+  async function loadQueueInfo() {
+    try {
+      const response = await fetch(`${API_BASE}/api/queue`);
+      if (response.ok) setQueueInfo(await response.json());
+    } catch {}
+  }
+
   useEffect(() => {
-    loadDashboardData().catch(() => {
-      setError("Could not load saved history from the backend.");
-    });
+    loadDashboardData();
+    loadQueueInfo();
+    const dashboardInterval = setInterval(loadDashboardData, 30000);
+    const queueInterval = setInterval(loadQueueInfo, 10000);
+    return () => {
+      clearInterval(dashboardInterval);
+      clearInterval(queueInterval);
+    };
   }, []);
 
   useEffect(() => {
-    if (result) {
-      if (resultRef.current) scrollToElementSlowly(resultRef.current);
-    }
+    if (result && resultRef.current) scrollToElementSlowly(resultRef.current);
   }, [result]);
 
   async function submitEvaluation() {
@@ -154,7 +186,7 @@ function App() {
 
     setLoading(true);
     setError("");
-    setOnnxMessage("");
+    setSuccessBanner("");
     setEvaluationStatus("CSV is being evaluated. Please wait.");
     setResult(null);
 
@@ -180,64 +212,91 @@ function App() {
     }
   }
 
-  async function submitOnnxEvaluation() {
+  function submitOnnxEvaluation() {
     if (!modelName.trim() || !onnxFile) return;
 
     setOnnxLoading(true);
     setError("");
-    setOnnxMessage("");
-    setEvaluationStatus("ONNX model is being evaluated on the private benchmark. Please wait.");
+    setSuccessBanner("");
     setResult(null);
+    setUploadProgress(0);
 
     const form = new FormData();
     form.append("model_name", modelName.trim());
     form.append("model_file", onnxFile);
 
-    try {
-      const response = await fetch(`${API_BASE}/api/evaluate-onnx`, {
-        method: "POST",
-        body: form,
-      });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.detail || "ONNX evaluation failed");
-      setResult(payload);
-      setEvaluationStatus("");
-      await loadDashboardData();
-    } catch (err) {
-      setEvaluationStatus("");
-      const detail = err instanceof Error ? err.message : "ONNX evaluation failed";
-      setOnnxMessage(
-        `Model upload failed: ${detail} Please try the prediction CSV version if the full pipeline ONNX cannot meet the submission requirements.`,
-      );
-    } finally {
+    const xhr = new XMLHttpRequest();
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        setUploadProgress(Math.round((event.loaded / event.total) * 100));
+      }
+    };
+
+    xhr.onload = async () => {
+      setUploadProgress(null);
+      try {
+        const payload = JSON.parse(xhr.responseText);
+        if (xhr.status >= 400) {
+          setError(payload.detail || "ONNX submission failed");
+          setOnnxLoading(false);
+          return;
+        }
+        const waitTime = formatDuration(payload.estimated_wait_seconds ?? 600);
+        setSuccessBanner(
+          `Your model "${modelName.trim()}" has been submitted successfully. ` +
+          `The leaderboard will update in approximately ${waitTime}. ` +
+          `You can close this page — results appear automatically.`
+        );
+        setModelName("");
+        setOnnxFile(null);
+        setOnnxLoading(false);
+        await loadQueueInfo();
+      } catch {
+        setError("ONNX submission failed — invalid server response.");
+        setOnnxLoading(false);
+      }
+    };
+
+    xhr.onerror = () => {
+      setUploadProgress(null);
+      setError("Upload failed — could not connect to the server.");
       setOnnxLoading(false);
-    }
+    };
+
+    xhr.open("POST", `${API_BASE}/api/submit-onnx`);
+    xhr.send(form);
   }
 
-  async function submitSelectedEvaluation() {
+  function submitSelectedEvaluation() {
     if (csvFile && onnxFile) {
       setError("Choose either a prediction CSV or an ONNX model, not both.");
       return;
     }
-
     if (csvFile) {
-      await submitEvaluation();
+      if (!csvFile.name.toLowerCase().endsWith(".csv")) {
+        setError("Please select a .csv file.");
+        return;
+      }
+      submitEvaluation();
       return;
     }
-
     if (onnxFile) {
-      await submitOnnxEvaluation();
+      if (!onnxFile.name.toLowerCase().endsWith(".onnx")) {
+        setError("Please select a .onnx file.");
+        return;
+      }
+      submitOnnxEvaluation();
     }
   }
 
   function exportLeaderboard() {
-    const headers = ["rank", "model", "macro_f1", "precision", "recall", "kappa", "accuracy", "runs"];
+    const headers = ["rank", "model", "type", "macro_f1", "kappa", "accuracy", "runs"];
     const rows = sortedLeaderboard.map((item, index) => [
       index + 1,
       item.model_name,
+      formatSubmissionType(item.submission_type),
       formatMetric(item.best_macro_f1),
-      formatMetric(item.best_macro_precision),
-      formatMetric(item.best_macro_recall),
       formatMetric(item.best_quadratic_kappa),
       formatMetric(item.best_accuracy),
       item.total_runs,
@@ -258,15 +317,29 @@ function App() {
     URL.revokeObjectURL(url);
   }
 
+  const queueLabel = queueInfo
+    ? queueInfo.running
+      ? `Queue: 1 running${queueInfo.queued > 0 ? `, ${queueInfo.queued} waiting` : ""}`
+      : queueInfo.queued > 0
+        ? `Queue: ${queueInfo.queued} waiting`
+        : "Queue empty"
+    : null;
+
   return (
     <main className="app-shell">
       <header className="topbar">
         <div className="logo-strip" aria-label="Institution logos">
           <img src="/logos/tanuh_logo.png" alt="TANUH" />
-          <img src="/logos/moe_logo.png" alt="Ministry of Education" />
           <img src="/logos/iisc_logo.png" alt="Indian Institute of Science" />
+          <img src="/logos/moe_logo.png" alt="Ministry of Education" />
         </div>
       </header>
+
+      {backendDown && (
+        <div className="backend-down-banner">
+          Cannot connect to the evaluation server. Please check that the backend is running on {API_BASE}.
+        </div>
+      )}
 
       <section className="hero">
         <div className="hero-copy">
@@ -276,9 +349,40 @@ function App() {
             <span>Benchmark Tool</span>
           </h1>
           <p>
-            Upload prediction CSVs for instant benchmarking, or submit an ONNX model to 
+            Upload prediction CSVs for instant benchmarking, or submit an ONNX model to
             run inference directly on the benchmark dataset.
           </p>
+
+          <div className="guidelines-grid">
+            <article className="guideline-card">
+              <h3>Prediction CSV</h3>
+              <ul>
+                <li>Two columns: <strong>image_id</strong> and <strong>predicted_label</strong></li>
+                <li>Labels: uppercase A, B, C, or D</li>
+                <li>All 800 benchmark images required</li>
+                <li>No duplicate image IDs</li>
+                <li>Max file size: 25 MB</li>
+              </ul>
+              <div className="guideline-example">
+                <span>Example</span>
+                <code>image_id,predicted_label{"\n"}embed_0001,C{"\n"}ibia_0001,B</code>
+              </div>
+            </article>
+            <article className="guideline-card">
+              <h3>ONNX Model</h3>
+              <ul>
+                <li>Self-contained <strong>.onnx</strong> file (no .data files)</li>
+                <li>Input: float32 grayscale <strong>[1,1,1024,1024]</strong></li>
+                <li>Output: 4 scores (A,B,C,D) or class index (0-3)</li>
+                <li>Full inference pipeline included</li>
+                <li>Max file size: 750 MB</li>
+              </ul>
+              <div className="guideline-example">
+                <span>Note</span>
+                <code>Models are queued and evaluated{"\n"}one at a time on the server.{"\n"}Leaderboard updates automatically.</code>
+              </div>
+            </article>
+          </div>
         </div>
 
         <form
@@ -289,7 +393,7 @@ function App() {
           }}
         >
           <label>
-            Model name
+            Model name (must be unique)
             <input
               value={modelName}
               onChange={(event) => setModelName(event.target.value)}
@@ -306,10 +410,12 @@ function App() {
                 const selectedFile = event.target.files?.[0] ?? null;
                 setCsvFile(selectedFile);
                 if (selectedFile) setOnnxFile(null);
+                setError("");
+                setSuccessBanner("");
               }}
             />
             <span>Select prediction CSV</span>
-            <small>{csvFile ? csvFile.name : "image_id,prediction or probability columns"}</small>
+            <small>{csvFile ? csvFile.name : "CSV with columns: image_id, predicted_label (A/B/C/D)"}</small>
           </label>
 
           <div className="choice-divider"><span>or</span></div>
@@ -323,11 +429,17 @@ function App() {
                 const selectedFile = event.target.files?.[0] ?? null;
                 setOnnxFile(selectedFile);
                 if (selectedFile) setCsvFile(null);
+                setError("");
+                setSuccessBanner("");
               }}
             />
             <span>Select .onnx model</span>
-            <small>{onnxFile ? onnxFile.name : "ONNX file with output order A,B,C,D"}</small>
+            <small>{onnxFile ? onnxFile.name : "Self-contained ONNX with output order A,B,C,D"}</small>
           </label>
+
+          {queueLabel && (
+            <p className="queue-status">{queueLabel}</p>
+          )}
 
           <div className="panel-help">
             <button
@@ -345,20 +457,30 @@ function App() {
                 <strong>Submission requirements</strong>
                 <div className="requirement-list">
                   <p>
-                    <span>CSV</span>
-                    image_id with A-D prediction or probability column in A-D order.
+                    <span>CSV format</span>
+                    Two columns: image_id and predicted_label. Labels must be A, B, C, or D. All 800 benchmark images required. No duplicates.
                   </p>
                   <p>
-                    <span>ONNX file</span>
-                    complete inference pipeline that converts the input tensor into the final density prediction.
+                    <span>CSV example</span>
+                    image_id,predicted_label<br/>
+                    embed_0001,C<br/>
+                    ibia_0001,B
                   </p>
                   <p>
-                    <span>ONNX input</span>
-                    receives grayscale mammogram tensor [1,1,1024,1024].
+                    <span>ONNX requirements</span>
+                    Standalone .onnx file with full inference pipeline (no separate .data files). Input: float32 grayscale tensor [1,1,1024,1024]. Output: 4 scores (A,B,C,D order) or class index (0=A, 1=B, 2=C, 3=D). Max 750 MB.
                   </p>
                   <p>
-                    <span>ONNX output</span>
-                    returns 4 scores A,B,C,D or class index 0=A,1=B,2=C,3=D.
+                    <span>Self-contained models only</span>
+                    The .onnx file must embed all weights. If your export creates a separate .data file, re-export with embedded weights (PyTorch: no external_data threshold; ONNX: save_as_external_data=False).
+                  </p>
+                  <p>
+                    <span>Model name</span>
+                    Each model name must be unique. You cannot resubmit with the same name.
+                  </p>
+                  <p>
+                    <span>ONNX queue</span>
+                    ONNX models are queued and evaluated one at a time. After uploading, you will see the estimated evaluation time. The leaderboard updates automatically when evaluation completes.
                   </p>
                 </div>
               </div>
@@ -366,12 +488,20 @@ function App() {
           </div>
 
           <button type="submit" disabled={loading || onnxLoading || !modelName.trim() || (!csvFile && !onnxFile)}>
-            <Upload size={18} />
-            {loading ? "Evaluating CSV" : onnxLoading ? "Evaluating model" : "Evaluate"}
+            {(loading || onnxLoading) ? <Loader size={18} className="spinner" /> : <Upload size={18} />}
+            {loading ? "Evaluating CSV..." : onnxLoading ? "Uploading..." : "Evaluate"}
           </button>
+
+          {uploadProgress !== null && (
+            <div className="upload-progress-container">
+              <div className="upload-progress-bar" style={{ width: `${uploadProgress}%` }} />
+              <span className="upload-progress-label">Uploading: {uploadProgress}%</span>
+            </div>
+          )}
+
           {evaluationStatus && <p className="status-text">{evaluationStatus}</p>}
+          {successBanner && <p className="success-banner">{successBanner}</p>}
           {error && <p className="error">{error}</p>}
-          {onnxMessage && <p className="helper-text">{onnxMessage}</p>}
         </form>
       </section>
 
@@ -527,9 +657,8 @@ function App() {
                 <tr>
                   <th>Rank</th>
                   <th>Model</th>
+                  <th>Type</th>
                   <th>Macro F1</th>
-                  <th>Precision</th>
-                  <th>Recall</th>
                   <th>Kappa</th>
                   <th>Accuracy</th>
                   <th>Runs</th>
@@ -540,9 +669,8 @@ function App() {
                   <tr className={index === 0 ? "top-ranked-row" : ""} key={item.model_name}>
                     <td>#{index + 1}</td>
                     <td>{item.model_name}</td>
+                    <td><span className={`type-badge ${item.submission_type?.startsWith("onnx") ? "type-onnx" : "type-csv"}`}>{formatSubmissionType(item.submission_type)}</span></td>
                     <td>{formatMetric(item.best_macro_f1)}</td>
-                    <td>{formatMetric(item.best_macro_precision)}</td>
-                    <td>{formatMetric(item.best_macro_recall)}</td>
                     <td>{formatMetric(item.best_quadratic_kappa)}</td>
                     <td>{formatMetric(item.best_accuracy)}</td>
                     <td>{item.total_runs}</td>
@@ -555,7 +683,6 @@ function App() {
             <p className="scroll-note">Scroll down to see more models.</p>
           )}
         </section>
-
       </section>
     </main>
   );
