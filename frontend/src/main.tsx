@@ -114,6 +114,7 @@ function App() {
   const [backendDown, setBackendDown] = useState(false);
   const [successBanner, setSuccessBanner] = useState("");
   const resultRef = useRef<HTMLElement | null>(null);
+  const requirementsRef = useRef<HTMLDivElement | null>(null);
 
   const evaluatedModelCount = leaderboard.length;
   const csvModelCount = new Set(
@@ -180,6 +181,21 @@ function App() {
   useEffect(() => {
     if (result && resultRef.current) scrollToElementSlowly(resultRef.current);
   }, [result]);
+
+  useEffect(() => {
+    if (!showRequirements) return;
+
+    function closeRequirementsOnOutsideClick(event: PointerEvent) {
+      if (!requirementsRef.current?.contains(event.target as Node)) {
+        setShowRequirements(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", closeRequirementsOnOutsideClick);
+    return () => {
+      document.removeEventListener("pointerdown", closeRequirementsOnOutsideClick);
+    };
+  }, [showRequirements]);
 
   async function submitEvaluation() {
     if (!modelName.trim() || !csvFile) return;
@@ -359,7 +375,7 @@ function App() {
               <ul>
                 <li>Two columns: <strong>image_id</strong> and <strong>predicted_label</strong></li>
                 <li>Labels: uppercase A, B, C, or D</li>
-                <li>All 800 benchmark images required</li>
+                <li>All 400 benchmark images required</li>
                 <li>No duplicate image IDs</li>
                 <li>Max file size: 25 MB</li>
               </ul>
@@ -393,7 +409,7 @@ function App() {
           }}
         >
           <label>
-            Model name (must be unique)
+            Model name 
             <input
               value={modelName}
               onChange={(event) => setModelName(event.target.value)}
@@ -441,7 +457,7 @@ function App() {
             <p className="queue-status">{queueLabel}</p>
           )}
 
-          <div className="panel-help">
+          <div className="panel-help" ref={requirementsRef}>
             <button
               type="button"
               className="help-trigger"
@@ -458,7 +474,7 @@ function App() {
                 <div className="requirement-list">
                   <p>
                     <span>CSV format</span>
-                    Two columns: image_id and predicted_label. Labels must be A, B, C, or D. All 800 benchmark images required. No duplicates.
+                    Two columns: image_id and predicted_label. Labels must be A, B, C, or D. All 400 benchmark images required. No duplicates.
                   </p>
                   <p>
                     <span>CSV example</span>
@@ -509,7 +525,7 @@ function App() {
         <article>
           <Database size={26} />
           <h2>Benchmark set</h2>
-          <p>Evaluate predictions across the balanced EMBED and IBIA test set with 200 cases per density class.</p>
+          <p>Evaluate predictions across the balanced EMBED and IBIA test set with 100 cases per density class.</p>
         </article>
         <article>
           <History size={26} />
@@ -538,8 +554,8 @@ function App() {
           <Images size={24} />
           <div>
             <span>Benchmark images</span>
-            <strong>800</strong>
-            <p>A/B/C/D balanced at 200 each</p>
+            <strong>400</strong>
+            <p>A/B/C/D balanced at 100 each</p>
           </div>
         </article>
         <article>
@@ -602,6 +618,22 @@ function App() {
               </div>
             </article>
           </div>
+          <aside className="density-citation" aria-label="Density label citation">
+            <Info size={17} aria-hidden="true" />
+            <p>
+              <strong>Density labels A-D follow the ACR BI-RADS Atlas breast composition
+              categories.</strong> Citation: American College of Radiology. <cite>ACR
+              BI-RADS Atlas: Breast Imaging Reporting and Data System</cite>.
+              5th ed. Reston, VA: American College of Radiology; 2013.
+              <a
+                href="https://www.acr.org/Clinical-Resources/Clinical-Tools-and-Reference/Reporting-and-Data-Systems/BI-RADS"
+                target="_blank"
+                rel="noreferrer"
+              >
+                ACR BI-RADS reference
+              </a>
+            </p>
+          </aside>
         </div>
       </section>
 

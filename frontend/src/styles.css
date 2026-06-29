@@ -242,6 +242,9 @@ input {
   left: 0;
   z-index: 3;
   width: min(390px, calc(100vw - 56px));
+  max-height: min(50vh, 420px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: rgba(253, 252, 252, 0.98);
@@ -665,8 +668,8 @@ button:disabled {
 
 .density-content {
   display: grid;
-  grid-template-rows: auto 1fr;
-  gap: 26px;
+  grid-template-rows: auto 1fr auto;
+  gap: 22px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: rgba(253, 252, 252, 0.92);
@@ -726,6 +729,48 @@ button:disabled {
 .density-class-grid p {
   font-size: 15px;
   line-height: 1.55;
+}
+
+.density-citation {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+  color: var(--muted);
+}
+
+.density-citation svg {
+  margin-top: 3px;
+  color: var(--teal);
+}
+
+.density-citation p {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.density-citation p strong {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.density-citation cite {
+  font-style: italic;
+}
+
+.density-citation a {
+  display: inline-block;
+  margin-left: 8px;
+  color: var(--teal);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.density-citation a:hover,
+.density-citation a:focus-visible {
+  text-decoration: underline;
 }
 
 .results {
