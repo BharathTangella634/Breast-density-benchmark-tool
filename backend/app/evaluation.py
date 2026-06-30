@@ -48,11 +48,6 @@ def _subject_id(value: str) -> str | None:
     return f"subject_{int(match.group(1)):04d}"
 
 
-def _uses_subject_ids(values: pd.Series) -> bool:
-    clean_values = values.dropna().astype(str).str.strip()
-    return not clean_values.empty and clean_values.map(lambda value: _subject_id(value) is not None).all()
-
-
 def _require_subject_ids(frame: pd.DataFrame, *, name: str) -> pd.DataFrame:
     frame = frame.copy()
     normalized_ids = frame["image_id"].map(lambda value: _subject_id(str(value)))
