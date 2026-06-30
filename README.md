@@ -78,8 +78,8 @@ Required format:
 
 ```csv
 image_id,predicted_label
-embed_0001,C
-ibia_0001,B
+subject_0001,C
+subject_0002,B
 ```
 
 Rules:

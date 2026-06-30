@@ -6,8 +6,8 @@ Required columns:
 
 ```csv
 image_id,predicted_label
-embed_0001,C
-ibia_0001,B
+subject_0001,C
+subject_0002,B
 ```
 
 Allowed labels:
@@ -19,8 +19,8 @@ Allowed labels:
 
 Rules:
 
-- Use exact `image_id` values from the public manifest (e.g. `embed_0001`, `ibia_0001`)
-- Include predictions for all 800 benchmark images — partial submissions are rejected
+- Use exact `image_id` values from the public manifest (e.g. `subject_0001`, `subject_0002`)
+- Include predictions for all 400 benchmark images — partial submissions are rejected
 - One prediction per image — no duplicate `image_id` values
 - Labels must be uppercase A, B, C, or D
 - Do not include extra columns — only `image_id` and `predicted_label`

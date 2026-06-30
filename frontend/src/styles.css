@@ -205,7 +205,7 @@ input {
   position: relative;
 }
 
-.panel-help {
+/* .panel-help {
   display: flex;
   justify-content: flex-start;
   margin-top: -2px;
@@ -293,7 +293,7 @@ input {
   font-weight: 800;
   line-height: 1.35;
   margin-bottom: 2px;
-}
+} */
 
 .upload-drop {
   min-height: 124px;
@@ -626,13 +626,63 @@ button:disabled {
 .density-image:hover::after,
 .density-image:focus::after,
 .density-image:hover .density-image-caption,
-.density-image:focus .density-image-caption {
+.density-image:focus .density-image-caption,
+.density-image:focus-within .density-image-caption {
   opacity: 1;
 }
 
 .density-image:hover::before,
-.density-image:focus::before {
+.density-image:focus::before,
+.density-image:focus-within::before {
   opacity: 0;
+}
+
+.density-hotspot {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 44px;
+  min-height: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #fff;
+  padding: 0;
+}
+
+.density-hotspot span {
+  opacity: 0;
+}
+
+.density-hotspot:hover,
+.density-hotspot:focus-visible,
+.density-hotspot.active {
+  border-color: rgba(218, 243, 244, 0.92);
+  background: rgba(20, 134, 140, 0.2);
+  box-shadow: 0 0 0 3px rgba(20, 134, 140, 0.22);
+  outline: none;
+}
+
+.density-hotspot-a {
+  left: calc(50% + 2px);
+  bottom: 0;
+}
+
+.density-hotspot-b {
+  left: 0;
+  bottom: 0;
+}
+
+.density-hotspot-c {
+  left: calc(50% + 2px);
+  top: calc(50% - 44px);
+}
+
+.density-hotspot-d {
+  left: 0;
+  top: calc(50% - 44px);
 }
 
 .density-image-caption {
@@ -699,6 +749,7 @@ button:disabled {
 }
 
 .density-class-grid article {
+  position: relative;
   display: grid;
   grid-template-columns: 46px minmax(0, 1fr);
   gap: 12px;
@@ -707,6 +758,27 @@ button:disabled {
   background: linear-gradient(180deg, rgba(218, 243, 244, 0.44), rgba(253, 252, 252, 0.95));
   padding: 20px 18px;
   align-content: center;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.density-class-grid article.active,
+.density-class-grid article:focus-visible {
+  border-color: var(--teal);
+  box-shadow: 0 14px 34px rgba(20, 134, 140, 0.18);
+  outline: none;
+  transform: translateY(-2px);
+}
+
+.density-class-grid article.active::after,
+.density-class-grid article:focus-visible::after {
+  position: absolute;
+  top: 50%;
+  left: -18px;
+  width: 18px;
+  height: 2px;
+  content: "";
+  background: var(--teal);
+  transform: translateY(-50%);
 }
 
 .density-class-grid strong {

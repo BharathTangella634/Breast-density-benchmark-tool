@@ -236,11 +236,11 @@ def balanced_sample_rows(
     return selected_embed, selected_ibia
 
 
-def assign_image_ids(rows: list[dict], prefix: str) -> list[dict]:
+def assign_image_ids(rows: list[dict], *, start_index: int = 1) -> list[dict]:
     output = []
-    for index, row in enumerate(rows, start=1):
+    for index, row in enumerate(rows, start=start_index):
         enriched = dict(row)
-        enriched["image_id"] = f"{prefix}_{index:04d}"
+        enriched["image_id"] = f"subject_{index:04d}"
         output.append(enriched)
     return output
 
@@ -297,8 +297,8 @@ def main() -> None:
         embed_selected = sample_rows(embed_candidates, args.embed_count, args.seed)
         ibia_selected = sample_rows(ibia_candidates, args.ibia_count, args.seed)
 
-    embed_sample = assign_image_ids(embed_selected, "embed")
-    ibia_sample = assign_image_ids(ibia_selected, "ibia")
+    embed_sample = assign_image_ids(embed_selected)
+    ibia_sample = assign_image_ids(ibia_selected, start_index=len(embed_sample) + 1)
 
     write_csv(args.output_dir / "benchmark_test_public.csv", embed_sample + ibia_sample, include_labels=False)
     write_combined_labels(args.output_dir / "benchmark_labels_private.csv", embed_sample + ibia_sample)

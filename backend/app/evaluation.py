@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import re
 
 import pandas as pd
 from sklearn.metrics import (
@@ -14,6 +15,7 @@ from sklearn.metrics import (
 
 REQUIRED_PREDICTION_COLUMNS = {"image_id", "predicted_label"}
 REQUIRED_GROUND_TRUTH_COLUMNS = {"image_id", "true_label"}
+SUBJECT_ID_PATTERN = re.compile(r"^subject_(\d+)$", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -39,11 +41,38 @@ def _validate_columns(frame: pd.DataFrame, required: set[str], name: str) -> Non
         raise ValueError(f"{name} is missing required column(s): {columns}")
 
 
+def _subject_id(value: str) -> str | None:
+    match = SUBJECT_ID_PATTERN.fullmatch(value.strip())
+    if not match:
+        return None
+    return f"subject_{int(match.group(1)):04d}"
+
+
+def _uses_subject_ids(values: pd.Series) -> bool:
+    clean_values = values.dropna().astype(str).str.strip()
+    return not clean_values.empty and clean_values.map(lambda value: _subject_id(value) is not None).all()
+
+
+def _require_subject_ids(frame: pd.DataFrame, *, name: str) -> pd.DataFrame:
+    frame = frame.copy()
+    normalized_ids = frame["image_id"].map(lambda value: _subject_id(str(value)))
+    invalid_ids = frame.loc[normalized_ids.isna(), "image_id"]
+    if not invalid_ids.empty:
+        examples = ", ".join(invalid_ids.astype(str).head(5))
+        raise ValueError(
+            f"{name} image_id values must use subject_#### format "
+            f"(e.g. subject_0001, subject_0002). Invalid example(s): {examples}"
+        )
+    frame["image_id"] = normalized_ids
+    return frame
+
+
 def _validate_predictions(frame: pd.DataFrame, *, allowed_labels: tuple[str, ...]) -> pd.DataFrame:
     """Validate and return predictions with only image_id and predicted_label columns."""
     frame = frame[["image_id", "predicted_label"]].copy()
     frame["image_id"] = frame["image_id"].str.strip()
     frame["predicted_label"] = frame["predicted_label"].str.strip().str.upper()
+    frame = _require_subject_ids(frame, name="Predictions CSV")
 
     empty_rows = frame["predicted_label"].isna() | (frame["predicted_label"] == "")
     if empty_rows.any():
@@ -94,6 +123,7 @@ def evaluate_predictions(
 
     predictions = _validate_predictions(predictions, allowed_labels=allowed_labels)
     ground_truth = ground_truth[["image_id", "true_label"]].dropna()
+    ground_truth = _require_subject_ids(ground_truth, name="Ground-truth CSV")
 
     expected_count = len(ground_truth)
     merged = ground_truth.merge(predictions, on="image_id", how="inner")
@@ -102,7 +132,7 @@ def evaluate_predictions(
         raise ValueError(
             "No image_id values matched the benchmark set. "
             "Make sure your CSV uses the exact image_id values from the public manifest "
-            "(e.g. embed_0001, ibia_0001)."
+            "(e.g. subject_0001, subject_0002)."
         )
 
     if len(merged) < expected_count:
