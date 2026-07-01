@@ -6,12 +6,16 @@ import {
   Database,
   Download,
   Gauge,
+  Globe2,
   History,
   Images,
   Info,
+  Linkedin,
   Loader,
   Trophy,
+  Twitter,
   Upload,
+  Youtube,
 } from "lucide-react";
 import "./styles.css";
 
@@ -54,11 +58,35 @@ type QueueInfo = {
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://127.0.0.1:8000";
 type SortKey = "best_macro_f1" | "best_accuracy" | "best_quadratic_kappa";
+type DensityLabel = "A" | "B" | "C" | "D";
 
 const sortOptions: { key: SortKey; label: string }[] = [
   { key: "best_macro_f1", label: "Macro F1" },
   { key: "best_accuracy", label: "Accuracy" },
   { key: "best_quadratic_kappa", label: "Kappa" },
+];
+
+const densityClasses: { label: DensityLabel; title: string; description: string }[] = [
+  {
+    label: "A",
+    title: "Almost entirely fatty",
+    description: "Low fibroglandular density with mostly fatty tissue appearance.",
+  },
+  {
+    label: "B",
+    title: "Scattered density",
+    description: "Scattered areas of fibroglandular tissue mixed with fatty regions.",
+  },
+  {
+    label: "C",
+    title: "Heterogeneously dense",
+    description: "More dense tissue is visible, making classification more challenging.",
+  },
+  {
+    label: "D",
+    title: "Extremely dense",
+    description: "High fibroglandular density with brighter tissue across the mammogram.",
+  },
 ];
 
 function formatMetric(value: number | null | undefined) {
@@ -108,12 +136,14 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [onnxLoading, setOnnxLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
-  const [showRequirements, setShowRequirements] = useState(false);
+  // const [showRequirements, setShowRequirements] = useState(false);
   const [leaderboardSort, setLeaderboardSort] = useState<SortKey>("best_macro_f1");
+  const [activeDensityLabel, setActiveDensityLabel] = useState<DensityLabel | null>(null);
   const [queueInfo, setQueueInfo] = useState<QueueInfo | null>(null);
   const [backendDown, setBackendDown] = useState(false);
   const [successBanner, setSuccessBanner] = useState("");
   const resultRef = useRef<HTMLElement | null>(null);
+  // const requirementsRef = useRef<HTMLDivElement | null>(null);
 
   const evaluatedModelCount = leaderboard.length;
   const csvModelCount = new Set(
@@ -180,6 +210,21 @@ function App() {
   useEffect(() => {
     if (result && resultRef.current) scrollToElementSlowly(resultRef.current);
   }, [result]);
+
+  // useEffect(() => {
+  //   if (!showRequirements) return;
+  //
+  //   function closeRequirementsOnOutsideClick(event: PointerEvent) {
+  //     if (!requirementsRef.current?.contains(event.target as Node)) {
+  //       setShowRequirements(false);
+  //     }
+  //   }
+  //
+  //   document.addEventListener("pointerdown", closeRequirementsOnOutsideClick);
+  //   return () => {
+  //     document.removeEventListener("pointerdown", closeRequirementsOnOutsideClick);
+  //   };
+  // }, [showRequirements]);
 
   async function submitEvaluation() {
     if (!modelName.trim() || !csvFile) return;
@@ -330,8 +375,8 @@ function App() {
       <header className="topbar">
         <div className="logo-strip" aria-label="Institution logos">
           <img src="/logos/tanuh_logo.png" alt="TANUH" />
-          <img src="/logos/iisc_logo.png" alt="Indian Institute of Science" />
           <img src="/logos/moe_logo.png" alt="Ministry of Education" />
+          <img src="/logos/iisc_logo.png" alt="Indian Institute of Science" />
         </div>
       </header>
 
@@ -359,13 +404,13 @@ function App() {
               <ul>
                 <li>Two columns: <strong>image_id</strong> and <strong>predicted_label</strong></li>
                 <li>Labels: uppercase A, B, C, or D</li>
-                <li>All 800 benchmark images required</li>
+                <li>All 400 benchmark images required</li>
                 <li>No duplicate image IDs</li>
                 <li>Max file size: 25 MB</li>
               </ul>
               <div className="guideline-example">
                 <span>Example</span>
-                <code>image_id,predicted_label{"\n"}embed_0001,C{"\n"}ibia_0001,B</code>
+                <code>image_id,predicted_label{"\n"}subject_0001,C{"\n"}subject_0002,B</code>
               </div>
             </article>
             <article className="guideline-card">
@@ -393,7 +438,7 @@ function App() {
           }}
         >
           <label>
-            Model name (must be unique)
+            Model name 
             <input
               value={modelName}
               onChange={(event) => setModelName(event.target.value)}
@@ -441,7 +486,7 @@ function App() {
             <p className="queue-status">{queueLabel}</p>
           )}
 
-          <div className="panel-help">
+          {/* <div className="panel-help" ref={requirementsRef}>
             <button
               type="button"
               className="help-trigger"
@@ -450,21 +495,20 @@ function App() {
               onClick={() => setShowRequirements((isVisible) => !isVisible)}
             >
               <Info size={16} />
-              <span>Submission requirements</span>
+              <span>Submission Guidelines</span>
             </button>
             {showRequirements && (
               <div className="help-popover" role="dialog" aria-label="Submission requirements">
-                <strong>Submission requirements</strong>
                 <div className="requirement-list">
                   <p>
                     <span>CSV format</span>
-                    Two columns: image_id and predicted_label. Labels must be A, B, C, or D. All 800 benchmark images required. No duplicates.
+                    Two columns: image_id and predicted_label. Labels must be A, B, C, or D. All 400 benchmark images required. No duplicates.
                   </p>
                   <p>
                     <span>CSV example</span>
                     image_id,predicted_label<br/>
-                    embed_0001,C<br/>
-                    ibia_0001,B
+                    subject_0001,C<br/>
+                    subject_0002,B
                   </p>
                   <p>
                     <span>ONNX requirements</span>
@@ -485,7 +529,7 @@ function App() {
                 </div>
               </div>
             )}
-          </div>
+          </div> */}
 
           <button type="submit" disabled={loading || onnxLoading || !modelName.trim() || (!csvFile && !onnxFile)}>
             {(loading || onnxLoading) ? <Loader size={18} className="spinner" /> : <Upload size={18} />}
@@ -509,7 +553,7 @@ function App() {
         <article>
           <Database size={26} />
           <h2>Benchmark set</h2>
-          <p>Evaluate predictions across the balanced EMBED and IBIA test set with 200 cases per density class.</p>
+          <p>Evaluate predictions across the balanced EMBED and IBIA test set with 100 cases per density class.</p>
         </article>
         <article>
           <History size={26} />
@@ -538,8 +582,8 @@ function App() {
           <Images size={24} />
           <div>
             <span>Benchmark images</span>
-            <strong>800</strong>
-            <p>A/B/C/D balanced at 200 each</p>
+            <strong>400</strong>
+            <p>A/B/C/D balanced at 100 each</p>
           </div>
         </article>
         <article>
@@ -561,47 +605,81 @@ function App() {
       </section>
 
       <section className="density-guide">
-        <div className="density-image" tabIndex={0} aria-label="Density reference image. Hover or focus to see details.">
-          <img src="/density-labels-corrected.png" alt="Mammogram examples for density labels A, B, C, and D" />
+        <div
+          className="density-image"
+          tabIndex={0}
+          aria-label="Density reference image. Hover or focus on A, B, C, or D to highlight the matching description."
+          onMouseLeave={() => setActiveDensityLabel(null)}
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+              setActiveDensityLabel(null);
+            }
+          }}
+        >
+          <img src="/density-labels-cd-best.png" alt="Mammogram examples for density labels A, B, C, and D" />
+          {densityClasses.map((densityClass) => (
+            <button
+              key={densityClass.label}
+              type="button"
+              className={`density-hotspot density-hotspot-${densityClass.label.toLowerCase()} ${
+                activeDensityLabel === densityClass.label ? "active" : ""
+              }`}
+              aria-label={`Highlight density ${densityClass.label}: ${densityClass.title}`}
+              onMouseEnter={() => setActiveDensityLabel(densityClass.label)}
+              onFocus={() => setActiveDensityLabel(densityClass.label)}
+            >
+              <span>{densityClass.label}</span>
+            </button>
+          ))}
           <div className="density-image-caption">
-            <span>Density reference</span>
-            <p>A visual guide for understanding the benchmark classes used during evaluation.</p>
+            <span>{activeDensityLabel ? `Density ${activeDensityLabel}` : "Density reference"}</span>
+            <p>
+              {activeDensityLabel
+                ? densityClasses.find((densityClass) => densityClass.label === activeDensityLabel)?.title
+                : "A visual guide for understanding the benchmark classes used during evaluation."}
+            </p>
           </div>
         </div>
         <div className="density-content">
           <div className="density-heading">
             <p className="eyebrow">Breast Density label guide</p>
+            <p className="density-view-note">Reference examples use left CC images.</p>
           </div>
           <div className="density-class-grid" aria-label="Breast density class descriptions">
-            <article>
-              <strong>A</strong>
-              <div>
-                <h3>Almost entirely fatty</h3>
-                <p>Low fibroglandular density with mostly fatty tissue appearance.</p>
-              </div>
-            </article>
-            <article>
-              <strong>B</strong>
-              <div>
-                <h3>Scattered density</h3>
-                <p>Scattered areas of fibroglandular tissue mixed with fatty regions.</p>
-              </div>
-            </article>
-            <article>
-              <strong>C</strong>
-              <div>
-                <h3>Heterogeneously dense</h3>
-                <p>More dense tissue is visible, making classification more challenging.</p>
-              </div>
-            </article>
-            <article>
-              <strong>D</strong>
-              <div>
-                <h3>Extremely dense</h3>
-                <p>High fibroglandular density with brighter tissue across the mammogram.</p>
-              </div>
-            </article>
+            {densityClasses.map((densityClass) => (
+              <article
+                key={densityClass.label}
+                className={activeDensityLabel === densityClass.label ? "active" : ""}
+                onMouseEnter={() => setActiveDensityLabel(densityClass.label)}
+                onMouseLeave={() => setActiveDensityLabel(null)}
+                onFocus={() => setActiveDensityLabel(densityClass.label)}
+                onBlur={() => setActiveDensityLabel(null)}
+                tabIndex={0}
+              >
+                <strong>{densityClass.label}</strong>
+                <div>
+                  <h3>{densityClass.title}</h3>
+                  <p>{densityClass.description}</p>
+                </div>
+              </article>
+            ))}
           </div>
+          <aside className="density-citation" aria-label="Density label citation">
+            <Info size={17} aria-hidden="true" />
+            <p>
+              <strong>Density labels A-D follow the ACR BI-RADS Atlas breast composition
+              categories.</strong> Citation: American College of Radiology. <cite>ACR
+              BI-RADS Atlas: Breast Imaging Reporting and Data System</cite>.
+              5th ed. Reston, VA: American College of Radiology; 2013.
+              <a
+                href="https://www.acr.org/Clinical-Resources/Clinical-Tools-and-Reference/Reporting-and-Data-Systems/BI-RADS"
+                target="_blank"
+                rel="noreferrer"
+              >
+                ACR BI-RADS reference
+              </a>
+            </p>
+          </aside>
         </div>
       </section>
 
@@ -684,6 +762,46 @@ function App() {
           )}
         </section>
       </section>
+
+      <footer className="contact-footer">
+        <div className="contact-footer-inner">
+          <div className="contact-column">
+            <h2>Address</h2>
+            <p>
+              AI Centre of Excellence in Healthcare<br />
+              Indian Institute of Science<br />
+              Seventh Floor, TCS Smart-X Hub<br />
+              Bengaluru, India - 560 012
+            </p>
+          </div>
+
+          <div className="contact-column contact-column-right">
+            <h2>Contact Information</h2>
+            <p>
+              Study: <a href="mailto:breastcancerdetection@tanuh.ai">breastcancerdetection@tanuh.ai</a>
+            </p>
+            <p>
+              General: <a href="mailto:info@tanuh.ai">info@tanuh.ai</a>
+            </p>
+            <p>Tel: (080) 2293 4106&nbsp;&nbsp;|&nbsp;&nbsp;(080) 2293 4107</p>
+          </div>
+
+          <nav className="social-links" aria-label="TANUH social links">
+            <a aria-label="TANUH website" href="https://www.tanuh.ai/" rel="noreferrer" target="_blank">
+              <Globe2 size={18} />
+            </a>
+            <a aria-label="TANUH LinkedIn" href="https://www.linkedin.com/company/tanuh-aicoe/" rel="noreferrer" target="_blank">
+              <Linkedin size={18} />
+            </a>
+            <a aria-label="TANUH X" href="https://x.com/TANUH_AI" rel="noreferrer" target="_blank">
+              <Twitter size={18} />
+            </a>
+            <a aria-label="TANUH YouTube" href="https://www.youtube.com/@TANUH-AI" rel="noreferrer" target="_blank">
+              <Youtube size={18} />
+            </a>
+          </nav>
+        </div>
+      </footer>
     </main>
   );
 }

@@ -7,9 +7,9 @@ Start with a private benchmark evaluator, not direct mammogram upload or a login
 The website should let interns upload a small predictions CSV:
 
 ```csv
-image_id,prediction
-sample_001,A
-sample_002,C
+image_id,predicted_label
+subject_0001,A
+subject_0002,C
 ```
 
 The backend compares those predictions with a private local ground-truth file that never leaves your machine or server. This is the cleanest first version because the EMBED images are large and should not be exposed through the public site.
@@ -51,7 +51,9 @@ For your current scope, build only these features:
 4. Ask interns to upload predictions with exactly:
 
    ```csv
-   image_id,prediction
+   image_id,predicted_label
+   subject_0001,C
+   subject_0002,B
    ```
 
 5. Store each run result in history and update the leaderboard.

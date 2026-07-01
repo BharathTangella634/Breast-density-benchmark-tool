@@ -29,9 +29,9 @@ sample_002,C
 Intern prediction uploads should contain:
 
 ```csv
-image_id,prediction
-sample_001,A
-sample_002,B
+image_id,predicted_label
+subject_0001,A
+subject_0002,B
 ```
 
 Probability uploads are also accepted:

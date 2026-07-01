@@ -26,23 +26,23 @@ Secondary metrics:
 
 ## Current Benchmark Data
 
-The current benchmark is a balanced 800-image test set prepared from EMBED and IBIA.
+The current benchmark is a balanced 400-image test set prepared from EMBED and IBIA.
 
 Class balance:
 
 ```text
-A: 200 images
-B: 200 images
-C: 200 images
-D: 200 images
+A: 100 images
+B: 100 images
+C: 100 images
+D: 100 images
 ```
 
 Dataset contribution:
 
 ```text
-EMBED: 432 images
-IBIA:  368 images
-Total: 800 images
+EMBED: 216 images
+IBIA:  184 images
+Total: 400 images
 ```
 
 Generated benchmark CSV files:
@@ -78,15 +78,15 @@ Required format:
 
 ```csv
 image_id,predicted_label
-embed_0001,C
-ibia_0001,B
+subject_0001,C
+subject_0002,B
 ```
 
 Rules:
 
 - Use exact `image_id` values from the public manifest.
 - Use labels only from `A`, `B`, `C`, `D` (uppercase).
-- Submit predictions for all 800 benchmark images. Partial submissions are rejected.
+- Submit predictions for all 400 benchmark images. Partial submissions are rejected.
 - One prediction per image. No duplicate `image_id` values.
 - Only two columns: `image_id` and `predicted_label`.
 
