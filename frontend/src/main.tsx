@@ -6,12 +6,16 @@ import {
   Database,
   Download,
   Gauge,
+  Globe2,
   History,
   Images,
   Info,
+  Linkedin,
   Loader,
   Trophy,
+  Twitter,
   Upload,
+  Youtube,
 } from "lucide-react";
 import "./styles.css";
 
@@ -639,6 +643,7 @@ function App() {
         <div className="density-content">
           <div className="density-heading">
             <p className="eyebrow">Breast Density label guide</p>
+            <p className="density-view-note">Reference examples use left CC images.</p>
           </div>
           <div className="density-class-grid" aria-label="Breast density class descriptions">
             {densityClasses.map((densityClass) => (
@@ -757,6 +762,49 @@ function App() {
           )}
         </section>
       </section>
+
+      <footer className="contact-footer">
+        <div className="contact-footer-inner">
+          <div className="contact-column">
+            <h2>Address</h2>
+            <p>
+              AI Centre of Excellence in Healthcare<br />
+              Indian Institute of Science<br />
+              Seventh Floor, TCS Smart-X Hub<br />
+              Bengaluru, India - 560 012
+            </p>
+          </div>
+
+          <div className="contact-column contact-column-right">
+            <h2>Contact Information</h2>
+            <p>
+              Study: <a href="mailto:breastcancerdetection@tanuh.ai">breastcancerdetection@tanuh.ai</a>
+            </p>
+            <p>
+              General: <a href="mailto:info@tanuh.ai">info@tanuh.ai</a>
+            </p>
+            <p>Tel: (080) 2293 4106&nbsp;&nbsp;|&nbsp;&nbsp;(080) 2293 4107</p>
+          </div>
+
+          <nav className="social-links" aria-label="TANUH social links">
+            <a aria-label="TANUH website" href="https://www.tanuh.ai/" rel="noreferrer" target="_blank">
+              <Globe2 size={18} />
+            </a>
+            <a aria-label="TANUH LinkedIn" href="https://www.linkedin.com/company/tanuh-aicoe/" rel="noreferrer" target="_blank">
+              <Linkedin size={18} />
+            </a>
+            <a aria-label="TANUH X" href="https://x.com/TANUH_AI" rel="noreferrer" target="_blank">
+              <Twitter size={18} />
+            </a>
+            <a aria-label="TANUH YouTube" href="https://www.youtube.com/@TANUH-AI" rel="noreferrer" target="_blank">
+              <Youtube size={18} />
+            </a>
+          </nav>
+
+          <div className="footer-rule" />
+          <p className="footer-copyright">© 2025 by TANUH Foundation</p>
+        </div>
+      </footer>
     </main>
   );
 }
