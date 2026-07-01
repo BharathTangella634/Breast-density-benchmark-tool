@@ -800,9 +800,6 @@ function App() {
               <Youtube size={18} />
             </a>
           </nav>
-
-          <div className="footer-rule" />
-          <p className="footer-copyright">© 2025 by TANUH Foundation</p>
         </div>
       </footer>
     </main>
