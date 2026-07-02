@@ -9,7 +9,7 @@ The benchmark data and true labels stay on the server. Users submit either a pre
 - Evaluates breast-density classification models for classes `A`, `B`, `C`, and `D`.
 - Supports prediction CSV uploads.
 - Supports ONNX model uploads for local server-side inference.
-- Saves every evaluation run in a database (SQLite locally, Cloud SQL PostgreSQL in production).
+- Saves every evaluation run in a database (SQLite locally, Cloud SQL MySQL in production).
 - Shows a leaderboard with the best score per model.
 - Keeps benchmark images and ground-truth labels private.
 
@@ -26,24 +26,7 @@ Secondary metrics:
 
 ## Current Benchmark Data
 
-The current benchmark is a balanced 400-image test set prepared from EMBED and IBIA.
-
-Class balance:
-
-```text
-A: 100 images
-B: 100 images
-C: 100 images
-D: 100 images
-```
-
-Dataset contribution:
-
-```text
-EMBED: 216 images
-IBIA:  184 images
-Total: 400 images
-```
+The current benchmark is a 200-image test set prepared from CR (clinic-collected) and IBIA datasets.
 
 Generated benchmark CSV files:
 
@@ -86,7 +69,7 @@ Rules:
 
 - Use exact `image_id` values from the public manifest.
 - Use labels only from `A`, `B`, `C`, `D` (uppercase).
-- Submit predictions for all 400 benchmark images. Partial submissions are rejected.
+- Submit predictions for all 200 benchmark images. Partial submissions are rejected.
 - One prediction per image. No duplicate `image_id` values.
 - Only two columns: `image_id` and `predicted_label`.
 

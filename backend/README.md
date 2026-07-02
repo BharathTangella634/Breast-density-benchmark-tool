@@ -22,41 +22,17 @@ The private ground-truth CSV should contain:
 
 ```csv
 image_id,true_label
-sample_001,A
-sample_002,C
+subject_0001,A
+subject_0002,C
 ```
 
-Intern prediction uploads should contain:
+Prediction uploads should contain:
 
 ```csv
 image_id,predicted_label
 subject_0001,A
 subject_0002,B
 ```
-
-Probability uploads are also accepted:
-
-```csv
-image_id,p0,p1,p2,p3
-sample_001,0.10,0.70,0.15,0.05
-sample_002,0.02,0.08,0.80,0.10
-```
-
-## Create the selected EMBED manifest
-
-```bash
-python -m app.dataset_filter --metadata /path/to/embed_metadata.csv --output data/private/selected_manifest.csv
-```
-
-The first filter applies:
-
-- `FinalImageType = 2D`
-- `ViewPosition in CC, MLO`
-- `spot_mag` blank
-- `XRayTubeCurrent >= 100`
-- `BitsStored = 12.0`
-- `PatientSex = F`
-- `BreastImplantPresent = NO`
 
 ## API summary
 

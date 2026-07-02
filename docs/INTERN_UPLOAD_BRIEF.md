@@ -20,7 +20,7 @@ Allowed labels:
 Rules:
 
 - Use exact `image_id` values from the public manifest (e.g. `subject_0001`, `subject_0002`)
-- Include predictions for all 400 benchmark images — partial submissions are rejected
+- Include predictions for all 200 benchmark images — partial submissions are rejected
 - One prediction per image — no duplicate `image_id` values
 - Labels must be uppercase A, B, C, or D
 - Do not include extra columns — only `image_id` and `predicted_label`

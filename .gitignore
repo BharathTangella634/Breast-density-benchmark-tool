@@ -4,10 +4,11 @@ backend/.venv/
 __pycache__/
 *.pyc
 .env
+.env.*
+*-bucket-writer.json
 .DS_Store
+data/
 backend/data/
-data/private/
-data/benchmark_prep/benchmark_labels_private.csv
 submissions/
 
 # Zip files (benchmark data, test data)

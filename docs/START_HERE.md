@@ -12,7 +12,7 @@ subject_0001,A
 subject_0002,C
 ```
 
-The backend compares those predictions with a private local ground-truth file that never leaves your machine or server. This is the cleanest first version because the EMBED images are large and should not be exposed through the public site.
+The backend compares those predictions with a private local ground-truth file that never leaves your machine or server.
 
 For your current scope, build only these features:
 
@@ -25,30 +25,21 @@ For your current scope, build only these features:
 
 - Frontend: React/Vite dashboard using Poppins and the palette `#14868C`, `#DAF3F4`, `#FDFCFC`.
 - Backend: FastAPI evaluation API.
-- Private storage: local folder or internal server path for selected EMBED manifest, labels, and optional image paths.
+- Private storage: local folder or internal server path for benchmark manifest, labels, and optional image paths.
 - Evaluation contract: interns submit predictions for fixed `image_id` values.
 - Results: primary metric is macro F1; secondary metrics are accuracy, balanced accuracy, weighted F1, and optional quadratic kappa.
 
 ## First milestone
 
-1. Filter the EMBED metadata using your criteria:
-   - `FinalImageType = 2D`
-   - `ViewPosition = CC/MLO`
-   - `spot_mag` blank
-   - `XRayTubeCurrent >= 100`
-   - `BitsStored = 12.0`
-   - `PatientSex = F`
-   - `BreastImplantPresent = NO`
-
-2. Create a benchmark split:
+1. Create a benchmark split:
    - `image_id`
    - image path, kept private
    - true density label
    - optional patient/study identifiers for leakage checks
 
-3. Publish only the `image_id` list or a feature file, depending on how interns are expected to run models.
+2. Publish only the `image_id` list or a feature file, depending on how interns are expected to run models.
 
-4. Ask interns to upload predictions with exactly:
+3. Ask interns to upload predictions with exactly:
 
    ```csv
    image_id,predicted_label
@@ -56,7 +47,7 @@ For your current scope, build only these features:
    subject_0002,B
    ```
 
-5. Store each run result in history and update the leaderboard.
+4. Store each run result in history and update the leaderboard.
 
 ## Later milestones
 

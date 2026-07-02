@@ -404,7 +404,7 @@ function App() {
               <ul>
                 <li>Two columns: <strong>image_id</strong> and <strong>predicted_label</strong></li>
                 <li>Labels: uppercase A, B, C, or D</li>
-                <li>All 400 benchmark images required</li>
+                <li>All 200 benchmark images required</li>
                 <li>No duplicate image IDs</li>
                 <li>Max file size: 25 MB</li>
               </ul>
@@ -502,7 +502,7 @@ function App() {
                 <div className="requirement-list">
                   <p>
                     <span>CSV format</span>
-                    Two columns: image_id and predicted_label. Labels must be A, B, C, or D. All 400 benchmark images required. No duplicates.
+                    Two columns: image_id and predicted_label. Labels must be A, B, C, or D. All 200 benchmark images required. No duplicates.
                   </p>
                   <p>
                     <span>CSV example</span>
