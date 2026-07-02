@@ -553,7 +553,7 @@ function App() {
         <article>
           <Database size={26} />
           <h2>Benchmark set</h2>
-          <p>Evaluate predictions across the balanced EMBED and IBIA test set with 100 cases per density class.</p>
+          <p>Evaluate predictions across the Benchmark test dataset.</p>
         </article>
         <article>
           <History size={26} />
@@ -582,8 +582,8 @@ function App() {
           <Images size={24} />
           <div>
             <span>Benchmark images</span>
-            <strong>400</strong>
-            <p>A/B/C/D balanced at 100 each</p>
+            <strong>200</strong>
+            <p>A/B/C/D </p>
           </div>
         </article>
         <article>
